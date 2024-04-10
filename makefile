@@ -2,7 +2,7 @@
 # Makefile Options
 # ----------------------------
 
-NAME = HCKMATCH
+NAME = HACKMTCH
 DESCRIPTION = "A Tetris-like game of block-moving and -swapping designed by Zachtronics"
 COMPRESSED = YES
 ARCHIVED = NO

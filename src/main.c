@@ -33,8 +33,15 @@
 #define GRID_HOFFSET (BG_HOFFSET + 48)
 #define GRID_VOFFSET (BG_VOFFSET + 23)
 #define GRID_SIZE 16
+#define SCORE_HOFFSET (BG_HOFFSET + 160)
+#define SCORE_VOFFSET (BG_VOFFSET + 41)
+#define HIGH_SCORE_HOFFSET (BG_HOFFSET + 160)
+#define HIGH_SCORE_VOFFSET (BG_VOFFSET + 97)
+#define NUM_DISPLAY_DIGITS 6
 
 bool toExit;
+unsigned int score;
+unsigned int highScore;
 
 enum file_t {
 	EMPTY,
@@ -56,11 +63,42 @@ const struct gfx_sprite_t *fileSprites[] = {
 	file_locked
 };
 
+const struct gfx_sprite_t *digitSprites[] = {
+	digit_0,
+	digit_1,
+	digit_2,
+	digit_3,
+	digit_4,
+	digit_5,
+	digit_6,
+	digit_7,
+	digit_8,
+	digit_9
+};
+
 unsigned char files[NUM_COLS][MAX_ROWS];
 
 bool doInput()
 {
 	return os_GetCSC();
+}
+
+void drawNumber(const unsigned int x, const unsigned char y, const unsigned int toDraw)
+{
+	bool significant = false;
+	unsigned int remainder = toDraw;
+	unsigned int digitX = x;
+	for (unsigned int divisor = 100000; divisor >= 1; divisor /= 10)
+	{
+		const unsigned char thisDigit = remainder / divisor;
+		remainder -= divisor * thisDigit;
+		if (thisDigit > 0) significant = true;
+
+		if (!significant) gfx_Sprite(digit_0_grey, digitX, y);
+		else gfx_Sprite(digitSprites[thisDigit], digitX, y);
+
+		digitX += 8;
+	}
 }
 
 void drawFrame()
@@ -79,6 +117,9 @@ void drawFrame()
 		}
 		y += GRID_SIZE;
 	}
+
+	// draw the score
+	drawNumber(SCORE_HOFFSET, SCORE_VOFFSET, score);
 	
 	gfx_BlitBuffer();
 }
@@ -88,6 +129,11 @@ void startGame()
 	// draw the background
 	gfx_FillScreen(COLOR_BLACK);
 	gfx_Sprite(background, BG_HOFFSET, BG_VOFFSET);
+
+	// draw the high score
+	drawNumber(HIGH_SCORE_HOFFSET, HIGH_SCORE_VOFFSET, highScore);
+
+	score = 0;
 
 	srand(rtc_Time());
 
@@ -106,12 +152,35 @@ void startGame()
 
 void endGame()
 {
+	if (score > highScore)
+	{
+		const unsigned char saveVar = ti_Open(SAVE_VAR_NAME, "w");
+		ti_Write(&highScore, 3, 1, saveVar);
+		ti_Close(saveVar);
+	}
+
 	toExit = true;
 }
 
 void init()
 {
 	toExit = false;
+
+	// find the high score
+	unsigned char saveVar = ti_Open(SAVE_VAR_NAME, "r");
+	if (saveVar == 0)
+	{
+		// need to make a new file
+		ti_Close(saveVar);
+		saveVar = ti_Open(SAVE_VAR_NAME, "w");
+		highScore = 0;
+		ti_Write(&highScore, 3, 1, saveVar);
+	}
+	else
+	{
+		ti_Read(&highScore, 3, 1, saveVar);
+	}
+	ti_Close(saveVar);
 }
 
 void titleScreen()
