@@ -3,29 +3,13 @@ palettes:
     fixed-entries:
       - color: {index: 0, r: 0, g: 0, b: 0}
       - color: {index: 1, r: 255, g: 255, b: 255}
-      - color: {index: 2, r: 5, g: 110, b: 45}
     images: automatic
 
 converts:
   - name: sprites
     palette: global_palette
     transparent-color-index: 3
-    images:
-      - card1.png
-      - card2.png
-      - card3.png
-      - card4.png
-      - card5.png
-      - card6.png
-      - card7.png
-      - card8.png
-      - card9.png
-      - card10.png
-      - cardstack.png
-      - freespace.png
-      - lock.png
-      - selcorner.png
-      - drpcorner.png
+    images: automatic
 
 outputs:
   - type: c
