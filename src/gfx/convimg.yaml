@@ -3,12 +3,12 @@ palettes:
     fixed-entries:
       - color: {index: 0, r: 0, g: 0, b: 0}
       - color: {index: 1, r: 255, g: 255, b: 255}
+      - color: {index: 2, r: 181, g: 49, b: 33}
     images: automatic
 
 converts:
   - name: sprites
     palette: global_palette
-    transparent-color-index: 3
     images: automatic
 
 outputs:

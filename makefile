@@ -4,7 +4,7 @@
 
 NAME = HCKMATCH
 DESCRIPTION = "A Tetris-like game of block-moving and -swapping designed by Zachtronics"
-COMPRESSED = NO
+COMPRESSED = YES
 ARCHIVED = NO
 
 CFLAGS = -Wall -Wextra -Oz
