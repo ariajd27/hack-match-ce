@@ -10,6 +10,8 @@
 
 #include "gfx/gfx.h"
 
+#define NO_BUFFER
+
 #define SAVE_VAR_NAME "HKMCHDAT"
 
 #define FRAME_TIME 1600
@@ -83,6 +85,11 @@ bool doInput()
 	return os_GetCSC();
 }
 
+void updateGrid()
+{
+
+}
+
 void drawNumber(const unsigned int x, const unsigned char y, const unsigned int toDraw)
 {
 	bool significant = false;
@@ -120,8 +127,10 @@ void drawFrame()
 
 	// draw the score
 	drawNumber(SCORE_HOFFSET, SCORE_VOFFSET, score);
-	
+
+#ifndef NO_BUFFER
 	gfx_BlitBuffer();
+#endif
 }
 
 void startGame()
@@ -192,7 +201,9 @@ void titleScreen()
 	gfx_SetTextXY(TITLE_TEXT_HOFFSET, TITLE_TEXT_VOFFSET);
 	gfx_PrintString("Press any key...");
 
+#ifndef NO_BUFFER
 	gfx_BlitBuffer();
+#endif
 
 	while (!os_GetCSC());
 }
@@ -200,7 +211,11 @@ void titleScreen()
 int main(void)
 {
 	gfx_Begin();
+#ifdef NO_BUFFER
+	gfx_SetDrawScreen();
+#else
 	gfx_SetDrawBuffer();
+#endif
 	gfx_SetPalette(global_palette, sizeof_global_palette, 0);
 
 	init();
@@ -216,6 +231,7 @@ int main(void)
 
 			if (doInput()) break;
 
+			updateGrid();
 			drawFrame();
 
 			while (clock() - frameTimer < FRAME_TIME);
