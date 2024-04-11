@@ -114,31 +114,37 @@ void drawExa()
 	}
 }
 
-unsigned char *getTargetedFile()
+bool getTargetedFile(unsigned char **output) // each of these returns false on failure
 {
-	for (unsigned char row = MAX_ROWS - 1; row > 0; row--)
+	for (unsigned char row = MAX_ROWS - 1; row < MAX_ROWS; row--)
 	{
 		if (files[exaCol][row] == FILE_EMPTY) continue;
-		return &files[exaCol][row];
+
+		*output = &files[exaCol][row];
+		return true;
 	}
-	return 0;
+
+	return false;
 }
 
-unsigned char *getTargetedSpace()
+bool getTargetedSpace(unsigned char **output)
 {
 	for (unsigned char row = 0; row < MAX_ROWS; row++)
 	{
 		if (files[exaCol][row] != FILE_EMPTY) continue;
-		return &files[exaCol][row];
+
+		*output = &files[exaCol][row];
+		return true;
 	}
-	return 0;
+
+	return false;
 }
 
 bool grab() // all of these return true if something changed
 {
-	unsigned char *targetedFile = getTargetedFile();
-	if (targetedFile == 0) return false; // column is empty
-	
+	unsigned char *targetedFile;
+	if (!getTargetedFile(&targetedFile)) return false; // column is empty
+
 	isHoldingFile = true;
 	heldFile = *targetedFile;
 	*targetedFile = FILE_EMPTY;
@@ -147,8 +153,8 @@ bool grab() // all of these return true if something changed
 
 bool drop()
 {
-	unsigned char *targetedSpace = getTargetedSpace();
-	if (targetedSpace == 0) return false;
+	unsigned char *targetedSpace;
+	if (!getTargetedSpace(&targetedSpace)) return false;
 
 	isHoldingFile = false;
 	*targetedSpace = heldFile;
@@ -157,12 +163,40 @@ bool drop()
 
 bool swap()
 {
-	unsigned char *targetedFile = getTargetedFile();
-	if (targetedFile == 0) return false;
+	unsigned char *targetedFile;
+	if (!getTargetedFile(&targetedFile)) return false;
 
 	const unsigned char swapFile = *targetedFile;
 	*targetedFile = heldFile;
 	heldFile = swapFile;
+	return true;
+}
+
+bool swapInPlace()
+{
+	// this is usually equivalent to just grab, then drop, then swap,
+	// but doing it in each piece will make it easier to catch cases
+	// where it doesn't work without stopping the process halfway
+	// through (which would be inaccurate)
+
+	unsigned char *topFile;
+	if (!getTargetedFile(&topFile))
+	{
+		return false;
+	}
+
+	const unsigned char swapFile = *topFile;
+	*topFile = FILE_EMPTY;
+
+	unsigned char *bottomFile;
+	if (!getTargetedFile(&bottomFile))
+	{
+		*topFile = swapFile;
+		return false;
+	}
+
+	*topFile = *bottomFile;
+	*bottomFile = swapFile;
 	return true;
 }
 
@@ -186,7 +220,7 @@ bool doInput()
 	if (kb_IsDown(kb_KeyAlpha) && !prevAlpha)
 	{
 		if (isHoldingFile) changedExaLook = swap();
-		// else nothing happens :(
+		else swapInPlace(); // the exa will never change its look here
 	}
 
 	prev2nd = kb_IsDown(kb_Key2nd);
