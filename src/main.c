@@ -10,13 +10,14 @@
 
 #include "gfx/gfx.h"
 
+#include <debug.h>
+
 // uncomment this line out to draw directly to the screen
 // #define NO_BUFFER
 
 #define SAVE_VAR_NAME "HKMCHDAT"
 
-#define SIMUL_FRAME_TIME 3200
-#define ANIM_FRAME_TIME 800 // TODO
+#define ANIM_FRAME_TIME 800
 
 #define COLOR_BLACK 0
 #define COLOR_WHITE 1
@@ -31,12 +32,17 @@
 #define NUM_COLS 6
 #define MAX_ROWS 11
 #define NUM_INITIAL_ROWS 3
-#define NEW_ROW_INTERVAL 64
 #define NUM_BLOCK_COLORS 5
 #define EXA_START_COL 2
 #define AMOUNT_TO_MATCH 4
 #define BASE_BLOCK_VALUE 100
-#define CHAIN_BLOCK_VALUE 200
+#define CHAIN_BLOCK_BONUS 50
+#define MAX_NEW_ROW_INTERVAL 200000ul
+#define MIN_NEW_ROW_INTERVAL 50000ul
+#define ROW_INTERVAL_SCALE_START 0ul
+#define ROW_INTERVAL_SCALE_END 100000ul
+#define ROW_INTERVAL_SCALE_FACTOR (MAX_NEW_ROW_INTERVAL - MIN_NEW_ROW_INTERVAL) \
+								/ (ROW_INTERVAL_SCALE_END - ROW_INTERVAL_SCALE_START)
 
 #define BG_HOFFSET ((GFX_LCD_WIDTH - background_width) / 2)
 #define BG_VOFFSET ((GFX_LCD_HEIGHT - background_height) / 2)
@@ -69,7 +75,6 @@
 
 bool toExit;
 bool gameOver;
-unsigned char updateTracker;
 
 unsigned int score;
 unsigned int highScore;
@@ -78,6 +83,8 @@ unsigned char files[NUM_COLS][MAX_ROWS];
 unsigned char exaCol;
 bool isHoldingFile;
 unsigned char heldFile;
+
+clock_t nextLineTime;
 
 const struct gfx_sprite_t *fileSprites[] = {
 	0,
@@ -104,7 +111,7 @@ const struct gfx_sprite_t *digitSprites[] = {
 
 gfx_UninitedSprite(behindExa, exa_empty_width, exa_empty_height);
 
-unsigned char prev2nd, prevAlpha;
+unsigned char prevRight, prevLeft, prev2nd, prevAlpha;
 
 void drawExa()
 {
@@ -121,94 +128,36 @@ void drawExa()
 	}
 }
 
-bool getTargetedFile(unsigned char **output) // each of these returns false on failure
+bool getTargetedFile(unsigned char *output) // each of these returns false on failure
 {
 	for (unsigned char row = MAX_ROWS - 1; row < MAX_ROWS; row--)
 	{
 		if (files[exaCol][row] == FILE_EMPTY) continue;
 
-		*output = &files[exaCol][row];
+		*output = row;
 		return true;
 	}
 
 	return false;
 }
 
-bool getTargetedSpace(unsigned char **output)
+bool getTargetedSpace(unsigned char *output)
 {
 	for (unsigned char row = 0; row < MAX_ROWS; row++)
 	{
 		if (files[exaCol][row] != FILE_EMPTY) continue;
 
-		*output = &files[exaCol][row];
+		*output = row;
 		return true;
 	}
 
 	return false;
 }
 
-bool grab() // all of these return true if something changed
+void drawCol(const unsigned char col)
 {
-	unsigned char *targetedFile;
-	if (!getTargetedFile(&targetedFile)) return false; // column is empty
+	const unsigned int x = GRID_HOFFSET + col * GRID_SIZE;
 
-	isHoldingFile = true;
-	heldFile = *targetedFile;
-	*targetedFile = FILE_EMPTY;
-	return true;
-}
-
-bool drop()
-{
-	unsigned char *targetedSpace;
-	if (!getTargetedSpace(&targetedSpace)) return false;
-
-	isHoldingFile = false;
-	*targetedSpace = heldFile;
-	return true;
-}
-
-bool swap()
-{
-	unsigned char *targetedFile;
-	if (!getTargetedFile(&targetedFile)) return false;
-
-	const unsigned char swapFile = *targetedFile;
-	*targetedFile = heldFile;
-	heldFile = swapFile;
-	return true;
-}
-
-bool swapInPlace()
-{
-	// this is usually equivalent to just grab, then drop, then swap,
-	// but doing it in each piece will make it easier to catch cases
-	// where it doesn't work without stopping the process halfway
-	// through (which would be inaccurate)
-
-	unsigned char *topFile;
-	if (!getTargetedFile(&topFile))
-	{
-		return false;
-	}
-
-	const unsigned char swapFile = *topFile;
-	*topFile = FILE_EMPTY;
-
-	unsigned char *bottomFile;
-	if (!getTargetedFile(&bottomFile))
-	{
-		*topFile = swapFile;
-		return false;
-	}
-
-	*topFile = *bottomFile;
-	*bottomFile = swapFile;
-	return true;
-}
-
-void drawCol(const unsigned char col, const unsigned int x)
-{
 	unsigned char y = GRID_VOFFSET;
 	for (unsigned char row = 0; row < MAX_ROWS; row++)
 	{
@@ -217,13 +166,20 @@ void drawCol(const unsigned char col, const unsigned int x)
 			// just draw a file
 			gfx_Sprite_NoClip(fileSprites[files[col][row]], x, y);
 		}
-		else if (col == exaCol)
+		else
 		{
-			// draw the dashed line up from the exa
-			const unsigned char xx = x + DASH_HOFFSET;
-			for (unsigned char yy = y + DASH_VOFFSET; yy < y + GRID_SIZE; yy += DASH_INTERVAL)
+			gfx_SetColor(COLOR_BLACK);
+			gfx_FillRectangle_NoClip(x, y, GRID_SIZE, GRID_SIZE);
+
+			if (col == exaCol)
 			{
-				gfx_SetPixel(xx, yy);
+				// draw the dashed line up from the exa
+				gfx_SetColor(COLOR_DASH);
+				const unsigned char xx = x + DASH_HOFFSET;
+				for (unsigned char yy = y + DASH_VOFFSET; yy < y + GRID_SIZE; yy += DASH_INTERVAL)
+				{
+					gfx_SetPixel(xx, yy);
+				}
 			}
 		}
 		y += GRID_SIZE;
@@ -232,14 +188,82 @@ void drawCol(const unsigned char col, const unsigned int x)
 	if (col == exaCol) drawExa(); // else it will have been drawn over a bit
 }
 
+bool grab() // all of these return true if something changed
+{
+	unsigned char targetedRow;
+	if (!getTargetedFile(&targetedRow)) return false; // column is empty
+
+	const unsigned char fileValue = files[exaCol][targetedRow];
+
+	// these animations are always drawn unbuffered. YEAH!
+#ifndef NO_BUFFER
+	gfx_SetDrawScreen();
+#endif
+	for (unsigned char row = targetedRow; row < MAX_ROWS - 1; row++)
+	{
+		files[exaCol][row] = FILE_EMPTY;
+		files[exaCol][row + 1] = fileValue;
+		drawCol(exaCol);
+	}
+
+	files[exaCol][MAX_ROWS - 1] = FILE_EMPTY;
+	isHoldingFile = true;
+	heldFile = fileValue;
+#ifndef NO_BUFFER
+	gfx_SetDrawBuffer();
+#endif
+
+	return true;
+}
+
+bool drop()
+{
+	unsigned char targetedRow;
+	if (!getTargetedSpace(&targetedRow)) return false;
+
+#ifndef NO_BUFFER
+	gfx_SetDrawScreen();
+#endif
+	const unsigned char fileValue = heldFile;
+	isHoldingFile = false;
+	drawExa(); // we'll have to draw it again later for the buffer, but... myeh.
+	files[exaCol][MAX_ROWS - 1] = fileValue;
+	drawCol(exaCol);
+
+	for (unsigned char row = MAX_ROWS - 1; row > targetedRow; row--)
+	{
+		files[exaCol][row] = FILE_EMPTY;
+		files[exaCol][row - 1] = fileValue;
+		drawCol(exaCol);
+	}
+#ifndef NO_BUFFER
+	gfx_SetDrawBuffer();
+#endif
+
+	return true;
+}
+
+bool swap()
+{
+	unsigned char topRow;
+	if (!getTargetedFile(&topRow)) return false;
+	if (topRow == 0) return false; // nothing under the top file to swap
+
+	const unsigned char swapFile = files[exaCol][topRow];
+
+	files[exaCol][topRow] = files[exaCol][topRow - 1];
+	files[exaCol][topRow - 1] = swapFile;
+	return true;
+}
+
 bool doInput()
 {
 	kb_Scan();
 
 	const unsigned char oldExaCol = exaCol;
 
-	if (kb_IsDown(kb_KeyRight) && exaCol < NUM_COLS - 1) exaCol++;
-	if (kb_IsDown(kb_KeyLeft) && exaCol > 0) exaCol--;
+	if (kb_IsDown(kb_KeyRight) && !prevRight && exaCol < NUM_COLS - 1) exaCol++;
+	if (kb_IsDown(kb_KeyLeft) && !prevLeft && exaCol > 0) exaCol--;
 
 	bool changedExaLook = false;
 
@@ -249,12 +273,10 @@ bool doInput()
 		if (isHoldingFile) changedExaLook = drop();
 		else changedExaLook = grab();
 	}
-	if (kb_IsDown(kb_KeyAlpha) && !prevAlpha)
-	{
-		if (isHoldingFile) changedExaLook = swap();
-		else swapInPlace(); // the exa will never change its look here
-	}
+	if (kb_IsDown(kb_KeyAlpha) && !prevAlpha) swap();
 
+	prevLeft = kb_IsDown(kb_KeyLeft);
+	prevRight = kb_IsDown(kb_KeyRight);
 	prev2nd = kb_IsDown(kb_Key2nd);
 	prevAlpha = kb_IsDown(kb_KeyAlpha);
 
@@ -286,6 +308,37 @@ void findMatchRegion
 	(*count)++;
 }
 
+void findMatchRegionClean
+(const unsigned char row, const unsigned char col, const unsigned char target, unsigned char *count)
+{
+	findMatchRegion(row, col, target, count);
+
+	for (unsigned char cleaningRow = 0; cleaningRow < MAX_ROWS; cleaningRow++)
+	{
+		for (unsigned char cleaningCol = 0; cleaningCol < NUM_COLS; cleaningCol++)
+		{
+			files[cleaningCol][cleaningRow] &= 0x7f;
+		}
+	}
+}
+
+void getNextLineTime()
+{
+	if (score < ROW_INTERVAL_SCALE_END)
+	{
+		nextLineTime = clock() + MAX_NEW_ROW_INTERVAL;
+
+		if (score > ROW_INTERVAL_SCALE_START)
+		{
+			nextLineTime -= (score - ROW_INTERVAL_SCALE_START) * ROW_INTERVAL_SCALE_FACTOR;
+		}
+	}
+	else
+	{
+		nextLineTime = clock() + MIN_NEW_ROW_INTERVAL;
+	}
+}
+
 void addNewRow()
 {
 	// check for game over
@@ -300,8 +353,14 @@ void addNewRow()
 		// save the old rows to move
 		swapRow[col] = files[col][0];
 
-		// make a new first row
-		files[col][0] = rand() % NUM_BLOCK_COLORS + 1;
+		// make a new first row -- avoiding completing a set
+		unsigned char numInGroup;
+		findMatchRegionClean(0, col, swapRow[col], &numInGroup);
+		do
+		{
+			files[col][0] = rand() % NUM_BLOCK_COLORS + 1;
+		}
+		while (files[col][0] == swapRow[col] && numInGroup >= AMOUNT_TO_MATCH - 1);
 	}
 
 	// move all the blocks down
@@ -316,7 +375,7 @@ void addNewRow()
 	}
 }
 
-bool tryScoreGrid(bool inChain)
+bool tryScoreGrid(unsigned char *atBase, unsigned int *nextValue)
 {
 	bool didScore = false;
 
@@ -335,17 +394,12 @@ bool tryScoreGrid(bool inChain)
 			if (numMatchingBlocks >= AMOUNT_TO_MATCH)
 			{
 				// calculate the score for the matching region
-				if (!inChain)
-				{
-					score += BASE_BLOCK_VALUE * AMOUNT_TO_MATCH;
-					numMatchingBlocks -= AMOUNT_TO_MATCH;
-					inChain = true;
-				}
 				while (numMatchingBlocks > 0)
 				{
-					// done like this to make it more easily swappable to a
-					// quadratic system if i decide to make that change
-					score += CHAIN_BLOCK_VALUE;
+					if (*atBase > 0) (*atBase)--;
+					else *nextValue += CHAIN_BLOCK_BONUS;
+					
+					score += *nextValue;
 					numMatchingBlocks--;
 				}
 
@@ -405,19 +459,19 @@ void collapseGrid()
 void updateGrid()
 {
 	// score and collapse the grid until no more scoring can be done
-	bool inChain = false;
-	while (tryScoreGrid(inChain))
+	unsigned char atBase = AMOUNT_TO_MATCH;
+	unsigned int nextValue = BASE_BLOCK_VALUE;
+	while (tryScoreGrid(&atBase, &nextValue))
 	{
 		collapseGrid();
-	};
-
-	// move the grid down if it's time
-	if (updateTracker % NEW_ROW_INTERVAL == 0)
-	{
-		addNewRow();
 	}
 
-	updateTracker++;
+	// move the grid down if it's time
+	if (clock() > nextLineTime)
+	{
+		addNewRow();
+		getNextLineTime();
+	}
 }
 
 void drawNumber(const unsigned int x, const unsigned char y, const unsigned int toDraw)
@@ -440,17 +494,10 @@ void drawNumber(const unsigned int x, const unsigned char y, const unsigned int 
 
 void drawFrame()
 {
-	// clear the old grid
-	gfx_SetColor(COLOR_BLACK);
-	gfx_FillRectangle_NoClip(GRID_HOFFSET, GRID_VOFFSET, NUM_COLS * GRID_SIZE, MAX_ROWS * GRID_SIZE);
-
 	// draw the new grid
-	gfx_SetColor(COLOR_DASH);
-	unsigned char x = GRID_HOFFSET;
 	for (unsigned char col = 0; col < NUM_COLS; col++)
 	{
-		drawCol(col, x);
-		x += GRID_SIZE;
+		drawCol(col);
 	}
 
 	// draw the score
@@ -471,24 +518,22 @@ void startGame()
 	drawNumber(HIGH_SCORE_HOFFSET, HIGH_SCORE_VOFFSET, highScore);
 
 	score = 0;
-	updateTracker = 0;
 	gameOver = 0;
 
 	srand(rtc_Time());
 
 	// populate the initial grid
-	for (unsigned char row = 0; row < NUM_INITIAL_ROWS - 1; row++)
+	for (unsigned char i = 0; i < NUM_INITIAL_ROWS; i++)
 	{
-		for (unsigned char col = 0; col < NUM_COLS; col++)
-		{
-			files[col][row] = rand() % NUM_BLOCK_COLORS + 1;
-		}
+		addNewRow();
 	}
 
 	// set and draw initial exa position
 	exaCol = EXA_START_COL;
 	gfx_GetSprite(behindExa, EXA_HOFFSET + EXA_START_COL * GRID_SIZE, EXA_VOFFSET);
 	gfx_RLETSprite(exa_empty, EXA_HOFFSET + EXA_START_COL * GRID_SIZE, EXA_VOFFSET);
+
+	nextLineTime = clock() + MIN_NEW_ROW_INTERVAL;
 }
 
 void endGame()
@@ -563,16 +608,12 @@ int main(void)
 
 		while (true)
 		{
-			clock_t frameTimer = clock();
-
 			if (doInput()) break;
 
 			updateGrid();
 			drawFrame();
 
 			if (gameOver) break;
-
-			while (clock() - frameTimer < SIMUL_FRAME_TIME);
 		}
 
 		endGame();
