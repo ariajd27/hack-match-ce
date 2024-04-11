@@ -15,7 +15,8 @@
 
 #define SAVE_VAR_NAME "HKMCHDAT"
 
-#define FRAME_TIME 3200
+#define SIMUL_FRAME_TIME 3200
+#define ANIM_FRAME_TIME 800 // TODO
 
 #define COLOR_BLACK 0
 #define COLOR_WHITE 1
@@ -30,8 +31,12 @@
 #define NUM_COLS 6
 #define MAX_ROWS 11
 #define NUM_INITIAL_ROWS 3
+#define NEW_ROW_INTERVAL 64
 #define NUM_BLOCK_COLORS 5
 #define EXA_START_COL 2
+#define AMOUNT_TO_MATCH 4
+#define BASE_BLOCK_VALUE 100
+#define CHAIN_BLOCK_VALUE 200
 
 #define BG_HOFFSET ((GFX_LCD_WIDTH - background_width) / 2)
 #define BG_VOFFSET ((GFX_LCD_HEIGHT - background_height) / 2)
@@ -63,6 +68,8 @@
 #define FILE_LOCKED 6
 
 bool toExit;
+bool gameOver;
+unsigned char updateTracker;
 
 unsigned int score;
 unsigned int highScore;
@@ -200,6 +207,31 @@ bool swapInPlace()
 	return true;
 }
 
+void drawCol(const unsigned char col, const unsigned int x)
+{
+	unsigned char y = GRID_VOFFSET;
+	for (unsigned char row = 0; row < MAX_ROWS; row++)
+	{
+		if (files[col][row] != FILE_EMPTY)
+		{
+			// just draw a file
+			gfx_Sprite_NoClip(fileSprites[files[col][row]], x, y);
+		}
+		else if (col == exaCol)
+		{
+			// draw the dashed line up from the exa
+			const unsigned char xx = x + DASH_HOFFSET;
+			for (unsigned char yy = y + DASH_VOFFSET; yy < y + GRID_SIZE; yy += DASH_INTERVAL)
+			{
+				gfx_SetPixel(xx, yy);
+			}
+		}
+		y += GRID_SIZE;
+	}
+
+	if (col == exaCol) drawExa(); // else it will have been drawn over a bit
+}
+
 bool doInput()
 {
 	kb_Scan();
@@ -240,9 +272,152 @@ bool doInput()
 	return kb_IsDown(kb_KeyClear);
 }
 
+void findMatchRegion
+(const unsigned char row, const unsigned char col, const unsigned char target, unsigned char *count)
+{
+	files[col][row] |= 0x80; // mark as visited
+
+	// visited tiles won't == target
+	if (col > 0 && files[col - 1][row] == target) findMatchRegion(row, col - 1, target, count);
+	if (col < NUM_COLS - 1 && files[col + 1][row] == target) findMatchRegion(row, col + 1, target, count);
+	if (row > 0 && files[col][row - 1] == target) findMatchRegion(row - 1, col, target, count);
+	if (row < MAX_ROWS - 1 && files[col][row + 1] == target) findMatchRegion(row + 1, col, target, count);
+
+	(*count)++;
+}
+
+void addNewRow()
+{
+	// check for game over
+	for (unsigned char col = 0; col < NUM_COLS; col++)
+	{
+		if (files[col][MAX_ROWS - 1] != FILE_EMPTY) gameOver = true;
+	}
+
+	unsigned char swapRow[NUM_COLS];
+	for (unsigned char col = 0; col < NUM_COLS; col++)
+	{
+		// save the old rows to move
+		swapRow[col] = files[col][0];
+
+		// make a new first row
+		files[col][0] = rand() % NUM_BLOCK_COLORS + 1;
+	}
+
+	// move all the blocks down
+	for (unsigned char row = 1; row < MAX_ROWS; row++)
+	{
+		for (unsigned char col = 0; col < NUM_COLS; col++)
+		{
+			unsigned char swapFile = files[col][row];
+			files[col][row] = swapRow[col];
+			swapRow[col] = swapFile;
+		}
+	}
+}
+
+bool tryScoreGrid(bool inChain)
+{
+	bool didScore = false;
+
+	// check for sets to pop and score
+	for (unsigned char row = MAX_ROWS - 1; row < MAX_ROWS; row--)
+	{
+		for (unsigned char col = 0; col < NUM_COLS; col++)
+		{
+			// skip if this one obviously isn't a member of a set
+			if (files[col][row] == FILE_EMPTY) continue;
+
+			// find all contiguous matching blocks and their count
+			unsigned char numMatchingBlocks = 0;
+			findMatchRegion(row, col, files[col][row], &numMatchingBlocks);
+
+			if (numMatchingBlocks >= AMOUNT_TO_MATCH)
+			{
+				// calculate the score for the matching region
+				if (!inChain)
+				{
+					score += BASE_BLOCK_VALUE * AMOUNT_TO_MATCH;
+					numMatchingBlocks -= AMOUNT_TO_MATCH;
+					inChain = true;
+				}
+				while (numMatchingBlocks > 0)
+				{
+					// done like this to make it more easily swappable to a
+					// quadratic system if i decide to make that change
+					score += CHAIN_BLOCK_VALUE;
+					numMatchingBlocks--;
+				}
+
+				// remove the matching region
+				for (unsigned char checkRow = 0; checkRow < MAX_ROWS; checkRow++)
+				{
+					for (unsigned char checkCol = 0; checkCol < NUM_COLS; checkCol++)
+					{
+						if (files[checkCol][checkRow] & 0x80) files[checkCol][checkRow] = FILE_EMPTY;
+					}
+				}
+
+				didScore = true;
+			}
+			else
+			{
+				// unmark the matching region
+				for (unsigned char checkRow = 0; checkRow < MAX_ROWS; checkRow++)
+				{
+					for (unsigned char checkCol = 0; checkCol < NUM_COLS; checkCol++)
+					{
+						files[checkCol][checkRow] &= 0x7f;
+					}
+				}	
+			}
+		}
+	}
+
+	return didScore;
+}
+
+void collapseGrid()
+{
+	// since this is a top-to-bottom search, we can do all the collapsing in one pass
+
+	for (unsigned char col = 0; col < NUM_COLS; col++)
+	{
+		for (unsigned char row = 0; row < MAX_ROWS; row++)
+		{
+			// searching for empty files
+			if (files[col][row] != FILE_EMPTY) continue;
+
+			// search for the next file down (if any)
+			for (unsigned char targetRow = row + 1; targetRow < MAX_ROWS; targetRow++)
+			{
+				if (files[col][targetRow] == FILE_EMPTY) continue;
+
+				// move the file up
+				files[col][row] = files[col][targetRow];
+				files[col][targetRow] = FILE_EMPTY;
+				break;
+			}
+		}
+	}
+}
+
 void updateGrid()
 {
+	// score and collapse the grid until no more scoring can be done
+	bool inChain = false;
+	while (tryScoreGrid(inChain))
+	{
+		collapseGrid();
+	};
 
+	// move the grid down if it's time
+	if (updateTracker % NEW_ROW_INTERVAL == 0)
+	{
+		addNewRow();
+	}
+
+	updateTracker++;
 }
 
 void drawNumber(const unsigned int x, const unsigned char y, const unsigned int toDraw)
@@ -271,32 +446,12 @@ void drawFrame()
 
 	// draw the new grid
 	gfx_SetColor(COLOR_DASH);
-	unsigned char y = GRID_VOFFSET;
-	for (unsigned char row = 0; row < MAX_ROWS; row++)
+	unsigned char x = GRID_HOFFSET;
+	for (unsigned char col = 0; col < NUM_COLS; col++)
 	{
-		unsigned int x = GRID_HOFFSET;
-		for (unsigned char col = 0; col < NUM_COLS; col++)
-		{
-			if (files[col][row] != FILE_EMPTY)
-			{
-				// just draw a file
-				gfx_Sprite_NoClip(fileSprites[files[col][row]], x, y);
-			}
-			else if (col == exaCol)
-			{
-				// draw the dashed line up from the exa
-				const unsigned char xx = x + DASH_HOFFSET;
-				for (unsigned char yy = y + DASH_VOFFSET; yy < y + GRID_SIZE; yy += DASH_INTERVAL)
-				{
-					gfx_SetPixel(xx, yy);
-				}
-			}
-			x += GRID_SIZE;
-		}
-		y += GRID_SIZE;
+		drawCol(col, x);
+		x += GRID_SIZE;
 	}
-
-	drawExa(); // otherwise its head gets cut off by the grid update
 
 	// draw the score
 	drawNumber(SCORE_HOFFSET, SCORE_VOFFSET, score);
@@ -316,11 +471,13 @@ void startGame()
 	drawNumber(HIGH_SCORE_HOFFSET, HIGH_SCORE_VOFFSET, highScore);
 
 	score = 0;
+	updateTracker = 0;
+	gameOver = 0;
 
 	srand(rtc_Time());
 
 	// populate the initial grid
-	for (unsigned char row = 0; row < NUM_INITIAL_ROWS; row++)
+	for (unsigned char row = 0; row < NUM_INITIAL_ROWS - 1; row++)
 	{
 		for (unsigned char col = 0; col < NUM_COLS; col++)
 		{
@@ -332,9 +489,6 @@ void startGame()
 	exaCol = EXA_START_COL;
 	gfx_GetSprite(behindExa, EXA_HOFFSET + EXA_START_COL * GRID_SIZE, EXA_VOFFSET);
 	gfx_RLETSprite(exa_empty, EXA_HOFFSET + EXA_START_COL * GRID_SIZE, EXA_VOFFSET);
-
-	// get the initial frame out there
-	drawFrame();
 }
 
 void endGame()
@@ -342,7 +496,7 @@ void endGame()
 	if (score > highScore)
 	{
 		const unsigned char saveVar = ti_Open(SAVE_VAR_NAME, "w");
-		ti_Write(&highScore, 3, 1, saveVar);
+		ti_Write(&score, 3, 1, saveVar);
 		ti_Close(saveVar);
 	}
 
@@ -416,7 +570,9 @@ int main(void)
 			updateGrid();
 			drawFrame();
 
-			while (clock() - frameTimer < FRAME_TIME);
+			if (gameOver) break;
+
+			while (clock() - frameTimer < SIMUL_FRAME_TIME);
 		}
 
 		endGame();
