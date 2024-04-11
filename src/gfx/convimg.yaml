@@ -4,12 +4,49 @@ palettes:
       - color: {index: 0, r: 0, g: 0, b: 0}
       - color: {index: 1, r: 255, g: 255, b: 255}
       - color: {index: 2, r: 181, g: 49, b: 33}
+      - color: {index: 3, r: 179, g: 243, b: 204}
     images: automatic
 
 converts:
-  - name: sprites
+  - name: misc
     palette: global_palette
-    images: automatic
+    style: rlet
+    transparent-color-index: 4
+    images:
+      - background.png
+      - exa_empty.png
+      - exa_full.png
+      - title.png
+  - name: grid_icons
+    palette: global_palette
+    style: palette
+    images:
+      - file_blue.png
+      - file_cyan.png
+      - file_locked.png
+      - file_purple.png
+      - file_red.png
+      - file_yellow.png
+      - star_blue.png
+      - star_cyan.png
+      - star_purple.png
+      - star_red.png
+      - star_yellow.png
+  - name: digits
+    palette: global_palette
+    style: palette
+    images:
+      - digit_0.png
+      - digit_1.png
+      - digit_2.png
+      - digit_3.png
+      - digit_4.png
+      - digit_5.png
+      - digit_6.png
+      - digit_7.png
+      - digit_8.png
+      - digit_9.png
+      - digit_0_grey.png
 
 outputs:
   - type: c
@@ -17,5 +54,7 @@ outputs:
     palettes:
       - global_palette
     converts:
-      - sprites
+      - misc
+      - grid_icons
+      - digits
 
