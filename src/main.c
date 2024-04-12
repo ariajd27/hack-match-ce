@@ -9,69 +9,8 @@
 #include <time.h>
 
 #include "gfx/gfx.h"
-
-#include <debug.h>
-
-// uncomment this line out to draw directly to the screen
-// #define NO_BUFFER
-
-#define SAVE_VAR_NAME "HKMCHDAT"
-
-#define ANIM_FRAME_TIME 800
-
-#define COLOR_BLACK 0
-#define COLOR_WHITE 1
-#define COLOR_RED 2
-#define COLOR_DASH 3
-
-#define TITLE_SPRITE_HOFFSET ((GFX_LCD_WIDTH - title_width) / 2)
-#define TITLE_SPRITE_VOFFSET 36
-#define TITLE_TEXT_HOFFSET 110
-#define TITLE_TEXT_VOFFSET 180
-
-#define NUM_COLS 6
-#define MAX_ROWS 11
-#define NUM_INITIAL_ROWS 3
-#define NUM_BLOCK_COLORS 5
-#define EXA_START_COL 2
-#define AMOUNT_TO_MATCH 4
-#define BASE_BLOCK_VALUE 100
-#define CHAIN_BLOCK_BONUS 50
-#define MAX_NEW_ROW_INTERVAL 200000ul
-#define MIN_NEW_ROW_INTERVAL 50000ul
-#define ROW_INTERVAL_SCALE_START 0ul
-#define ROW_INTERVAL_SCALE_END 100000ul
-#define ROW_INTERVAL_SCALE_FACTOR (MAX_NEW_ROW_INTERVAL - MIN_NEW_ROW_INTERVAL) \
-								/ (ROW_INTERVAL_SCALE_END - ROW_INTERVAL_SCALE_START)
-
-#define BG_HOFFSET ((GFX_LCD_WIDTH - background_width) / 2)
-#define BG_VOFFSET ((GFX_LCD_HEIGHT - background_height) / 2)
-
-#define GRID_HOFFSET (BG_HOFFSET + 48)
-#define GRID_VOFFSET (BG_VOFFSET + 23)
-#define GRID_SIZE 16
-
-#define EXA_HOFFSET (BG_HOFFSET + 44)
-#define EXA_VOFFSET (BG_VOFFSET + 193)
-#define EXA_HELD_HOFFSET 4
-#define EXA_HELD_VOFFSET 6
-#define DASH_HOFFSET 8
-#define DASH_VOFFSET 3
-#define DASH_INTERVAL 4
-
-#define SCORE_HOFFSET (BG_HOFFSET + 160)
-#define SCORE_VOFFSET (BG_VOFFSET + 41)
-#define HIGH_SCORE_HOFFSET (BG_HOFFSET + 160)
-#define HIGH_SCORE_VOFFSET (BG_VOFFSET + 97)
-#define NUM_DISPLAY_DIGITS 6
-
-#define FILE_EMPTY 0
-#define FILE_RED 1
-#define FILE_YELLOW 2
-#define FILE_CYAN 3
-#define FILE_BLUE 4
-#define FILE_PURPLE 5
-#define FILE_LOCKED 6
+#include "drawing.h"
+#include "variables.h"
 
 bool toExit;
 bool gameOver;
@@ -86,47 +25,7 @@ unsigned char heldFile;
 
 clock_t nextLineTime;
 
-const struct gfx_sprite_t *fileSprites[] = {
-	0,
-	file_red,
-	file_yellow,
-	file_cyan,
-	file_blue,
-	file_purple,
-	file_locked
-};
-
-const struct gfx_sprite_t *digitSprites[] = {
-	digit_0,
-	digit_1,
-	digit_2,
-	digit_3,
-	digit_4,
-	digit_5,
-	digit_6,
-	digit_7,
-	digit_8,
-	digit_9
-};
-
-gfx_UninitedSprite(behindExa, exa_empty_width, exa_empty_height);
-
 unsigned char prevRight, prevLeft, prev2nd, prevAlpha;
-
-void drawExa()
-{
-	const unsigned char exaX = EXA_HOFFSET + GRID_SIZE * exaCol;
-
-	if (isHoldingFile)
-	{
-		gfx_Sprite_NoClip(fileSprites[heldFile], exaX + EXA_HELD_HOFFSET, EXA_VOFFSET + EXA_HELD_VOFFSET);
-		gfx_RLETSprite_NoClip(exa_full, exaX, EXA_VOFFSET);
-	}
-	else
-	{
-		gfx_RLETSprite_NoClip(exa_empty, exaX, EXA_VOFFSET);
-	}
-}
 
 bool getTargetedFile(unsigned char *output) // each of these returns false on failure
 {
@@ -152,40 +51,6 @@ bool getTargetedSpace(unsigned char *output)
 	}
 
 	return false;
-}
-
-void drawCol(const unsigned char col)
-{
-	const unsigned int x = GRID_HOFFSET + col * GRID_SIZE;
-
-	unsigned char y = GRID_VOFFSET;
-	for (unsigned char row = 0; row < MAX_ROWS; row++)
-	{
-		if (files[col][row] != FILE_EMPTY)
-		{
-			// just draw a file
-			gfx_Sprite_NoClip(fileSprites[files[col][row]], x, y);
-		}
-		else
-		{
-			gfx_SetColor(COLOR_BLACK);
-			gfx_FillRectangle_NoClip(x, y, GRID_SIZE, GRID_SIZE);
-
-			if (col == exaCol)
-			{
-				// draw the dashed line up from the exa
-				gfx_SetColor(COLOR_DASH);
-				const unsigned char xx = x + DASH_HOFFSET;
-				for (unsigned char yy = y + DASH_VOFFSET; yy < y + GRID_SIZE; yy += DASH_INTERVAL)
-				{
-					gfx_SetPixel(xx, yy);
-				}
-			}
-		}
-		y += GRID_SIZE;
-	}
-
-	if (col == exaCol) drawExa(); // else it will have been drawn over a bit
 }
 
 bool grab() // all of these return true if something changed
@@ -356,11 +221,21 @@ void addNewRow()
 		// make a new first row -- avoiding completing a set
 		unsigned char numInGroup;
 		findMatchRegionClean(0, col, swapRow[col], &numInGroup);
-		do
+		while (true)
 		{
 			files[col][0] = rand() % NUM_BLOCK_COLORS + 1;
+			if (rand() % STAR_CHANCE == 0) files[col][0] |= 0x08; // set it to be a star
+
+			if (files[col][0] != swapRow[col])
+			{
+				// we want to check down and left -- ones further right have yet to be 
+				// determined and from their perspective, we are to their left
+				if (col == 0) break;
+				else if (files[col][0] != swapRow[col - 1]) break;
+			}
+			if (files[col][0] & 0x08) continue; // star and matches neighbor means would be a set
+			if (numInGroup < AMOUNT_FILES_TO_MATCH - 1) break;
 		}
-		while (files[col][0] == swapRow[col] && numInGroup >= AMOUNT_TO_MATCH - 1);
 	}
 
 	// move all the blocks down
@@ -375,6 +250,35 @@ void addNewRow()
 	}
 }
 
+
+void popStar(const unsigned char row, const unsigned char col, bool neighborInCol)
+{
+	// mark the popping stars
+	files[col][row] |= 0x80;
+	files[neighborInCol ? col + 1 : col][neighborInCol ? row : row + 1] |= 0x80;
+
+	// mark all the matching files
+	const unsigned char target = files[col][row] & 0x07;
+	for (unsigned char row = 0; row < MAX_ROWS; row++)
+	{
+		for (unsigned char col = 0; col < NUM_COLS; col++)
+		{
+			if (files[col][row] == target) files[col][row] |= 0x80;
+		}
+	}
+
+	animateClear();
+
+	// remove the stars and files
+	for (unsigned char row = 0; row < MAX_ROWS; row++)
+	{
+		for (unsigned char col = 0; col < NUM_COLS; col++)
+		{
+			if (files[col][row] & 0x80) files[col][row] = FILE_EMPTY;
+		}
+	}
+}
+
 bool tryScoreGrid(unsigned char *atBase, unsigned int *nextValue)
 {
 	bool didScore = false;
@@ -384,15 +288,40 @@ bool tryScoreGrid(unsigned char *atBase, unsigned int *nextValue)
 	{
 		for (unsigned char col = 0; col < NUM_COLS; col++)
 		{
-			// skip if this one obviously isn't a member of a set
 			if (files[col][row] == FILE_EMPTY) continue;
+
+			if (files[col][row] & 0x08)
+			{
+				// it's a star... does it have a match?
+				if (row < MAX_ROWS - 1)
+				{
+					if (files[col][row + 1] == files[col][row])
+					{
+						popStar(row, col, false);
+						return true;
+					}
+				}
+				else if (col < NUM_COLS - 1)
+				{
+					if (files[col + 1][row] == files[col][row])
+					{
+						popStar(row, col, true);
+						return true;
+					}
+				}
+
+				// if not, we don't care about it, bc it can't form a set
+				else continue;
+			}
 
 			// find all contiguous matching blocks and their count
 			unsigned char numMatchingBlocks = 0;
 			findMatchRegion(row, col, files[col][row], &numMatchingBlocks);
 
-			if (numMatchingBlocks >= AMOUNT_TO_MATCH)
+			if (numMatchingBlocks >= AMOUNT_FILES_TO_MATCH)
 			{
+				animateClear();
+
 				// calculate the score for the matching region
 				while (numMatchingBlocks > 0)
 				{
@@ -459,7 +388,7 @@ void collapseGrid()
 void updateGrid()
 {
 	// score and collapse the grid until no more scoring can be done
-	unsigned char atBase = AMOUNT_TO_MATCH;
+	unsigned char atBase = AMOUNT_FILES_TO_MATCH;
 	unsigned int nextValue = BASE_BLOCK_VALUE;
 	while (tryScoreGrid(&atBase, &nextValue))
 	{
@@ -472,40 +401,6 @@ void updateGrid()
 		addNewRow();
 		getNextLineTime();
 	}
-}
-
-void drawNumber(const unsigned int x, const unsigned char y, const unsigned int toDraw)
-{
-	bool significant = false;
-	unsigned int remainder = toDraw;
-	unsigned int digitX = x;
-	for (unsigned int divisor = 100000; divisor >= 1; divisor /= 10)
-	{
-		const unsigned char thisDigit = remainder / divisor;
-		remainder -= divisor * thisDigit;
-		if (thisDigit > 0) significant = true;
-
-		if (!significant) gfx_Sprite_NoClip(digit_0_grey, digitX, y);
-		else gfx_Sprite_NoClip(digitSprites[thisDigit], digitX, y);
-
-		digitX += 8;
-	}
-}
-
-void drawFrame()
-{
-	// draw the new grid
-	for (unsigned char col = 0; col < NUM_COLS; col++)
-	{
-		drawCol(col);
-	}
-
-	// draw the score
-	drawNumber(SCORE_HOFFSET, SCORE_VOFFSET, score);
-
-#ifndef NO_BUFFER
-	gfx_BlitBuffer();
-#endif
 }
 
 void startGame()
@@ -571,22 +466,6 @@ void init()
 	// initialize sprite storage
 	behindExa->width = exa_empty_width;
 	behindExa->height = exa_empty_height;
-}
-
-void titleScreen()
-{
-	gfx_FillScreen(COLOR_BLACK);
-	gfx_RLETSprite_NoClip(title, TITLE_SPRITE_HOFFSET, TITLE_SPRITE_VOFFSET);
-
-	gfx_SetTextFGColor(COLOR_RED);
-	gfx_SetTextXY(TITLE_TEXT_HOFFSET, TITLE_TEXT_VOFFSET);
-	gfx_PrintString("Press any key...");
-
-#ifndef NO_BUFFER
-	gfx_BlitBuffer();
-#endif
-
-	while (!os_GetCSC());
 }
 
 int main(void)

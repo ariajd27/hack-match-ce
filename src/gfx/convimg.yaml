@@ -32,6 +32,16 @@ converts:
       - star_purple.png
       - star_red.png
       - star_yellow.png
+      - file_match_red.png
+      - file_match_yellow.png
+      - file_match_cyan.png
+      - file_match_blue.png
+      - file_match_purple.png
+      - file_erase_1.png
+      - file_erase_2.png
+      - star_match.png
+      - star_erase_1.png
+      - star_erase_2.png
   - name: digits
     palette: global_palette
     style: palette
