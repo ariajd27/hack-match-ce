@@ -154,7 +154,7 @@ void animateClear() // relies on to-clears being flagged with bit 7
 		gfx_BlitBuffer();
 	}
 
-	nextLineTime += refundTimer;
+	nextLineTime += clock() - refundTimer;
 }
 
 void drawNumber(const unsigned int x, const unsigned char y, const unsigned int toDraw)

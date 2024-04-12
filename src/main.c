@@ -12,6 +12,8 @@
 #include "drawing.h"
 #include "variables.h"
 
+#include <debug.h>
+
 bool toExit;
 bool gameOver;
 
@@ -218,24 +220,8 @@ void addNewRow()
 		// save the old rows to move
 		swapRow[col] = files[col][0];
 
-		// make a new first row -- avoiding completing a set
-		unsigned char numInGroup;
-		findMatchRegionClean(0, col, swapRow[col], &numInGroup);
-		while (true)
-		{
-			files[col][0] = rand() % NUM_BLOCK_COLORS + 1;
-			if (rand() % STAR_CHANCE == 0) files[col][0] |= 0x08; // set it to be a star
-
-			if (files[col][0] != swapRow[col])
-			{
-				// we want to check down and left -- ones further right have yet to be 
-				// determined and from their perspective, we are to their left
-				if (col == 0) break;
-				else if (files[col][0] != swapRow[col - 1]) break;
-			}
-			if (files[col][0] & 0x08) continue; // star and matches neighbor means would be a set
-			if (numInGroup < AMOUNT_FILES_TO_MATCH - 1) break;
-		}
+		// overwrite with zeroes so it doesn't mess with checks while making a new row later
+		files[col][0] = FILE_EMPTY;
 	}
 
 	// move all the blocks down
@@ -248,15 +234,54 @@ void addNewRow()
 			swapRow[col] = swapFile;
 		}
 	}
+
+	// make a new first row, regenerating each block until it doesn't make a set
+	for (unsigned char col = 0; col < NUM_COLS; col++)
+	{
+		while (true)
+		{
+			files[col][0] = rand() % NUM_BLOCK_COLORS + 1;
+			if (rand() % STAR_CHANCE == 0) files[col][0] |= 0x08; // set it to be a star
+
+			unsigned char numInGroup;
+			findMatchRegionClean(0, col, files[col][0], &numInGroup);
+
+			if (files[col][1] != files[col][0] && files[col - 1][1] != files[col][0]) break;
+			else if ((files[col][0] & 0x08) && numInGroup >= 2) continue;
+			else if (numInGroup >= AMOUNT_FILES_TO_MATCH) continue;
+
+			break;
+		}
+	}
 }
 
-
-void popStar(const unsigned char row, const unsigned char col, bool neighborInCol)
+void collapseGrid()
 {
-	// mark the popping stars
-	files[col][row] |= 0x80;
-	files[neighborInCol ? col + 1 : col][neighborInCol ? row : row + 1] |= 0x80;
+	// since this is a top-to-bottom search, we can do all the collapsing in one pass
 
+	for (unsigned char col = 0; col < NUM_COLS; col++)
+	{
+		for (unsigned char row = 0; row < MAX_ROWS; row++)
+		{
+			// searching for empty files
+			if (files[col][row] != FILE_EMPTY) continue;
+
+			// search for the next file down (if any)
+			for (unsigned char targetRow = row + 1; targetRow < MAX_ROWS; targetRow++)
+			{
+				if (files[col][targetRow] == FILE_EMPTY) continue;
+
+				// move the file up
+				files[col][row] = files[col][targetRow];
+				files[col][targetRow] = FILE_EMPTY;
+				break;
+			}
+		}
+	}
+}
+
+void popStar(const unsigned char row, const unsigned char col)
+{
 	// mark all the matching files
 	const unsigned char target = files[col][row] & 0x07;
 	for (unsigned char row = 0; row < MAX_ROWS; row++)
@@ -277,6 +302,8 @@ void popStar(const unsigned char row, const unsigned char col, bool neighborInCo
 			if (files[col][row] & 0x80) files[col][row] = FILE_EMPTY;
 		}
 	}
+
+	collapseGrid();
 }
 
 bool tryScoreGrid(unsigned char *atBase, unsigned int *nextValue)
@@ -293,25 +320,21 @@ bool tryScoreGrid(unsigned char *atBase, unsigned int *nextValue)
 			if (files[col][row] & 0x08)
 			{
 				// it's a star... does it have a match?
-				if (row < MAX_ROWS - 1)
+				unsigned char numMatchingStars = 0;
+				findMatchRegion(row, col, files[col][row], &numMatchingStars);
+				if (numMatchingStars < 2)
 				{
-					if (files[col][row + 1] == files[col][row])
-					{
-						popStar(row, col, false);
-						return true;
-					}
+					// if not, we don't care about it, bc it can't form a set
+					files[col][row] &= 0x7f;
 				}
-				else if (col < NUM_COLS - 1)
+				else
 				{
-					if (files[col + 1][row] == files[col][row])
-					{
-						popStar(row, col, true);
-						return true;
-					}
+					// if we get here, it does have a match!
+					popStar(row, col);
 				}
 
-				// if not, we don't care about it, bc it can't form a set
-				else continue;
+				// no matter what, we don't do the file stuff for stars
+				continue;
 			}
 
 			// find all contiguous matching blocks and their count
@@ -358,31 +381,6 @@ bool tryScoreGrid(unsigned char *atBase, unsigned int *nextValue)
 	}
 
 	return didScore;
-}
-
-void collapseGrid()
-{
-	// since this is a top-to-bottom search, we can do all the collapsing in one pass
-
-	for (unsigned char col = 0; col < NUM_COLS; col++)
-	{
-		for (unsigned char row = 0; row < MAX_ROWS; row++)
-		{
-			// searching for empty files
-			if (files[col][row] != FILE_EMPTY) continue;
-
-			// search for the next file down (if any)
-			for (unsigned char targetRow = row + 1; targetRow < MAX_ROWS; targetRow++)
-			{
-				if (files[col][targetRow] == FILE_EMPTY) continue;
-
-				// move the file up
-				files[col][row] = files[col][targetRow];
-				files[col][targetRow] = FILE_EMPTY;
-				break;
-			}
-		}
-	}
 }
 
 void updateGrid()
