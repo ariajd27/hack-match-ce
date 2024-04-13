@@ -59,7 +59,7 @@
 #define HIGH_SCORE_HOFFSET (BG_HOFFSET + 160)
 #define HIGH_SCORE_VOFFSET (BG_VOFFSET + 97)
 #define NUM_DISPLAY_DIGITS 6
-#define PLAY_AGAIN_HOFFSET (GRID_HOFFSET + (NUM_COLS * GRID_SIZE - play_again_width) / 2)
+#define PLAY_AGAIN_HOFFSET (2 + GRID_HOFFSET + (NUM_COLS * GRID_SIZE - play_again_width) / 2)
 #define PLAY_AGAIN_VOFFSET 140
 
 extern bool toExit;
