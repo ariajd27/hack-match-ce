@@ -5,27 +5,22 @@ palettes:
       - color: {index: 0, r: 0, g: 0, b: 0}
       - color: {index: 1, r: 255, g: 255, b: 255}
       - color: {index: 2, r: 181, g: 49, b: 33}
-      - color: {index: 3, r: 179, g: 243, b: 204}
     images: automatic
   - name: grid_palette
     images: automatic
     fixed-entries:
-      - color: {index: 0, r: 0, g: 0, b: 0}
+      - color: {index: 0, r: 0, g: 255, b: 255}
+      - color: {index: 1, r: 179, g: 243, b: 204}
 
 converts:
   - name: misc
     palette: fixed_palette
     style: rlet
-    transparent-color-index: 4
+    transparent-color-index: 16
     images:
       - background.png
       - title.png
-  - name: text
-    palette: fixed_palette
-    style: rlet
-    transparent-color-index: 4
-    images:
-      - chars/*.png
+      - play_again.png
   - name: grid_icons
     palette: grid_palette
     palette-offset: 16
@@ -47,8 +42,11 @@ converts:
       - digits/*.png
 
 outputs:
-  - type: c
+  - type: appvar
+    name: "HKMCHGFX"
     include-file: gfx.h
+    source-format: c
+    archived: true
     palettes:
       - fixed_palette
       - grid_palette
@@ -56,6 +54,4 @@ outputs:
       - misc
       - grid_icons
       - digits
-      - text
       - exas
-

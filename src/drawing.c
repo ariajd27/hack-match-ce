@@ -12,60 +12,31 @@
 #include "variables.h"
 #include "drawing.h"
 
-const struct gfx_sprite_t *fileSprites[] = {
-	0,
-	file_red,
-	file_yellow,
-	file_cyan,
-	file_blue,
-	file_purple,
-	file_locked,
-	0,
-	0,
-	star_red,
-	star_yellow,
-	star_cyan,
-	star_blue,
-	star_purple
-};
+unsigned char global_palette[32 + sizeof_grid_palette];
+unsigned char deathStage;
 
-const struct gfx_sprite_t *fileMatchSprites[] = {
-	0,
-	file_match_red,
-	file_match_yellow,
-	file_match_cyan,
-	file_match_blue,
-	file_match_purple
-};
-
-const struct gfx_sprite_t *digitSprites[] = {
-	digit_0,
-	digit_1,
-	digit_2,
-	digit_3,
-	digit_4,
-	digit_5,
-	digit_6,
-	digit_7,
-	digit_8,
-	digit_9
-};
+struct gfx_sprite_t *fileSprites[14];
+struct gfx_sprite_t *fileMatchSprites[6];
+struct gfx_sprite_t *digitSprites[10];
+struct gfx_rletsprite_t *deathSprites[3];
 
 gfx_UninitedSprite(behindExa, exa_empty_width, exa_empty_height);
 
 void drawExa()
 {
 	const unsigned char exaX = EXA_HOFFSET + GRID_SIZE * exaCol;
-
-	if (isHoldingFile)
+	if (deathStage == 0 && isHoldingFile)
 	{
 		gfx_Sprite_NoClip(fileSprites[heldFile], exaX + EXA_HELD_HOFFSET, EXA_VOFFSET + EXA_HELD_VOFFSET);
-		gfx_RLETSprite_NoClip(exa_full, exaX, EXA_VOFFSET);
 	}
-	else
+
+	if (deathStage > 0) gfx_RLETSprite_NoClip(deathSprites[deathStage], exaX, EXA_VOFFSET);
+	else if (isHoldingFile)
 	{
-		gfx_RLETSprite_NoClip(exa_empty, exaX, EXA_VOFFSET);
+		if (heldFile & 0x08) gfx_RLETSprite_NoClip(exa_star, exaX, EXA_VOFFSET);
+		else gfx_RLETSprite_NoClip(exa_file, exaX, EXA_VOFFSET);
 	}
+	else gfx_RLETSprite_NoClip(exa_empty, exaX, EXA_VOFFSET);
 }
 
 void drawCol(const unsigned char col)
@@ -177,7 +148,10 @@ void drawNumber(const unsigned int x, const unsigned char y, const unsigned int 
 
 void drawFrame()
 {
-	// draw the new grid
+	// erase the old exa
+	gfx_Sprite_NoClip(behindExa, EXA_HOFFSET + GRID_SIZE * exaCol, EXA_VOFFSET);
+
+	// draw the new grid and exa
 	for (unsigned char col = 0; col < NUM_COLS; col++)
 	{
 		drawCol(col);
@@ -205,4 +179,30 @@ void titleScreen()
 #endif
 
 	while (!os_GetCSC());
+}
+
+void sleep(unsigned long time)
+{
+	clock_t sleepTimer = clock();
+	while (clock() - sleepTimer < time);
+}
+
+void animateDeath()
+{
+	// darken the grid
+	for (unsigned char i = 16; i < 32; i++) gfx_palette[i] = gfx_Darken(gfx_palette[i], DEATH_DARKEN_LEVEL);
+	drawFrame();
+	sleep(DEATH_ANIMATION_FRAME_TIME);
+
+	// play the "exa dying" sprites
+	deathStage = 1;
+	drawFrame();
+	sleep(DEATH_ANIMATION_FRAME_TIME);
+	deathStage = 2;
+	drawFrame();
+	sleep(DEATH_ANIMATION_FRAME_TIME);
+
+	// ask the player to try again
+	gfx_RLETSprite_NoClip(play_again, PLAY_AGAIN_HOFFSET, PLAY_AGAIN_VOFFSET);
+	gfx_BlitBuffer();
 }

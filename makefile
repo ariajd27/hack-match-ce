@@ -4,10 +4,8 @@
 
 NAME = HACKMTCH
 DESCRIPTION = "A fast-paced match-4 designed by Zachtronics"
-COMPRESSED = YES
+COMPRESSED = NO
 ARCHIVED = NO
-
-DEPS = src/gfx/gfx.h
 
 CFLAGS = -Wall -Wextra -Oz
 CXXFLAGS = -Wall -Wextra -Oz
@@ -16,5 +14,5 @@ CXXFLAGS = -Wall -Wextra -Oz
 
 include $(shell cedev-config --makefile)
 
-src/gfx/gfx.h:
-	make gfx
+group::
+	convbin -j 8x -i bin/HACKMTCH.8xp -i src/gfx/HKMCHGFX.8xv -k 8xg-auto-extract -o bin/HACKMTCH.8xg -n HACKMTCH

@@ -14,7 +14,6 @@
 
 #include <debug.h>
 
-bool toExit;
 bool gameOver;
 
 unsigned int score;
@@ -62,15 +61,21 @@ bool grab() // all of these return true if something changed
 
 	const unsigned char fileValue = files[exaCol][targetedRow];
 
+	clock_t refundTimer = clock();
+
 	// these animations are always drawn unbuffered. YEAH!
 #ifndef NO_BUFFER
 	gfx_SetDrawScreen();
 #endif
 	for (unsigned char row = targetedRow; row < MAX_ROWS - 1; row++)
 	{
+		clock_t animationTimer = clock();
+
 		files[exaCol][row] = FILE_EMPTY;
 		files[exaCol][row + 1] = fileValue;
 		drawCol(exaCol);
+
+		while (clock() - animationTimer < MOVE_ANIMATION_FRAME_TIME);
 	}
 
 	files[exaCol][MAX_ROWS - 1] = FILE_EMPTY;
@@ -80,6 +85,8 @@ bool grab() // all of these return true if something changed
 	gfx_SetDrawBuffer();
 #endif
 
+	nextLineTime += clock() - refundTimer;
+
 	return true;
 }
 
@@ -88,12 +95,14 @@ bool drop()
 	unsigned char targetedRow;
 	if (!getTargetedSpace(&targetedRow)) return false;
 
+	clock_t refundTimer = clock();
+	clock_t animationTimer = clock();
+
 #ifndef NO_BUFFER
 	gfx_SetDrawScreen();
 #endif
 	const unsigned char fileValue = heldFile;
 	isHoldingFile = false;
-	drawExa(); // we'll have to draw it again later for the buffer, but... myeh.
 	files[exaCol][MAX_ROWS - 1] = fileValue;
 	drawCol(exaCol);
 
@@ -101,11 +110,18 @@ bool drop()
 	{
 		files[exaCol][row] = FILE_EMPTY;
 		files[exaCol][row - 1] = fileValue;
+
+		while (clock() - animationTimer < MOVE_ANIMATION_FRAME_TIME);
+
 		drawCol(exaCol);
+
+		animationTimer = clock();
 	}
 #ifndef NO_BUFFER
 	gfx_SetDrawBuffer();
 #endif
+
+	nextLineTime += clock() - refundTimer;
 
 	return true;
 }
@@ -158,7 +174,7 @@ bool doInput()
 		drawExa();
 	}
 
-	return kb_IsDown(kb_KeyClear);
+	return !kb_IsDown(kb_KeyClear);
 }
 
 void findMatchRegion
@@ -211,7 +227,11 @@ void addNewRow()
 	// check for game over
 	for (unsigned char col = 0; col < NUM_COLS; col++)
 	{
-		if (files[col][MAX_ROWS - 1] != FILE_EMPTY) gameOver = true;
+		if (files[col][MAX_ROWS - 1] == FILE_EMPTY) continue;
+
+		// if we make it here, there was something in the lowest row
+		gameOver = true;
+		return;
 	}
 
 	unsigned char swapRow[NUM_COLS];
@@ -403,6 +423,9 @@ void updateGrid()
 
 void startGame()
 {
+	// restore the palette
+	gfx_SetPalette(global_palette, 32 + sizeof_grid_palette, 0);
+
 	// draw the background
 	gfx_FillScreen(COLOR_BLACK);
 	gfx_RLETSprite_NoClip(background, BG_HOFFSET, BG_VOFFSET);
@@ -412,8 +435,18 @@ void startGame()
 
 	score = 0;
 	gameOver = 0;
+	deathStage = 0; // reset animation from last game
 
 	srand(rtc_Time());
+
+	// clear the grid from last game
+	for (unsigned char row = 0; row < MAX_ROWS; row++)
+	{
+		for (unsigned char col = 0; col < NUM_COLS; col++)
+		{
+			files[col][row] = FILE_EMPTY;
+		}
+	}
 
 	// populate the initial grid
 	for (unsigned char i = 0; i < NUM_INITIAL_ROWS; i++)
@@ -429,7 +462,7 @@ void startGame()
 	nextLineTime = clock() + MIN_NEW_ROW_INTERVAL;
 }
 
-void endGame()
+bool endGame()
 {
 	if (score > highScore)
 	{
@@ -438,11 +471,67 @@ void endGame()
 		ti_Close(saveVar);
 	}
 
-	toExit = true;
+	if (gameOver)
+	{
+		isHoldingFile = false;
+		animateDeath();
+
+		// wait for input to either exit or restart
+		while (true)
+		{
+			kb_Scan();
+
+			if (kb_IsDown(kb_KeyClear)) return false;
+			if (kb_IsDown(kb_Key2nd)) return true;
+		}
+	}
+
+	return false;
 }
 
 void init()
 {
+	// initialize the sprites
+	
+	HKMCHGFX_init();
+
+	fileSprites[0] = 0;
+	fileSprites[1] = file_red;
+	fileSprites[2] = file_yellow;
+	fileSprites[3] = file_cyan;
+	fileSprites[4] = file_blue;
+	fileSprites[5] = file_purple;
+	fileSprites[6] = file_locked;
+	fileSprites[7] = 0;
+	fileSprites[8] = 0;
+	fileSprites[9] = star_red;
+	fileSprites[10] = star_yellow;
+	fileSprites[11] = star_cyan;
+	fileSprites[12] = star_blue;
+	fileSprites[13] = star_purple;
+
+	fileMatchSprites[0] = 0;
+	fileMatchSprites[1] = file_match_red;
+	fileMatchSprites[2] = file_match_yellow;
+	fileMatchSprites[3] = file_match_cyan;
+	fileMatchSprites[4] = file_match_blue;
+	fileMatchSprites[5] = file_match_purple;
+
+	digitSprites[0] = digit_0;
+	digitSprites[1] = digit_1;
+	digitSprites[2] = digit_2;
+	digitSprites[3] = digit_3;
+	digitSprites[4] = digit_4;
+	digitSprites[5] = digit_5;
+	digitSprites[6] = digit_6;
+	digitSprites[7] = digit_7;
+	digitSprites[8] = digit_8;
+	digitSprites[9] = digit_9;
+
+	deathSprites[0] = 0;
+	deathSprites[1] = exa_dying_1;
+	deathSprites[2] = exa_dying_2;
+
 	// basic graphics display settings
 	gfx_Begin();
 #ifdef NO_BUFFER
@@ -451,13 +540,11 @@ void init()
 	gfx_SetDrawBuffer();
 #endif
 
-	// set the weird combination palette
-	unsigned char global_palette[32 + sizeof_grid_palette];
+	// prepare the sketchy combination palette
 	for (unsigned char i = 0; i < sizeof_fixed_palette; i++) global_palette[i] = fixed_palette[i];
 	for (unsigned char i = 0; i < sizeof_grid_palette; i++) global_palette[i + 32] = grid_palette[i];
 	gfx_SetPalette(global_palette, 32 + sizeof_grid_palette, 0);
-
-	toExit = false;
+	gfx_SetTransparentColor(16);
 
 	// find the high score
 	unsigned char saveVar = ti_Open(SAVE_VAR_NAME, "r");
@@ -485,22 +572,19 @@ int main(void)
 	init();
 	titleScreen();
 
-	while (!toExit)
+	do
 	{
 		startGame();
 
-		while (true)
+		while (doInput())
 		{
-			if (doInput()) break;
-
 			updateGrid();
 			drawFrame();
 
 			if (gameOver) break;
 		}
-
-		endGame();
 	}
+	while (endGame());
 
 	gfx_End();
 

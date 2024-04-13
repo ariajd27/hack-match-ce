@@ -1,15 +1,12 @@
 #ifndef variables_include_file
 #define variables_include_file
 
-// uncomment this line out to draw directly to the screen
-// #define NO_BUFFER
-
 #define SAVE_VAR_NAME "HKMCHDAT"
 
 #define COLOR_BLACK 0
 #define COLOR_WHITE 1
 #define COLOR_RED 2
-#define COLOR_DASH 3
+#define COLOR_DASH 17
 
 #define TITLE_SPRITE_HOFFSET ((GFX_LCD_WIDTH - title_width) / 2)
 #define TITLE_SPRITE_VOFFSET 36
@@ -40,8 +37,10 @@
 #define FILE_PURPLE 5
 #define FILE_LOCKED 6
 
-#define MOVE_ANIMATION_FRAME_TIME 400 // TODO
-#define CLEAR_ANIMATION_FRAME_TIME 3200
+#define MOVE_ANIMATION_FRAME_TIME 300
+#define CLEAR_ANIMATION_FRAME_TIME 4800
+#define DEATH_ANIMATION_FRAME_TIME 12000
+#define DEATH_DARKEN_LEVEL 96
 
 #define BG_HOFFSET ((GFX_LCD_WIDTH - background_width) / 2)
 #define BG_VOFFSET ((GFX_LCD_HEIGHT - background_height) / 2)
@@ -60,6 +59,8 @@
 #define HIGH_SCORE_HOFFSET (BG_HOFFSET + 160)
 #define HIGH_SCORE_VOFFSET (BG_VOFFSET + 97)
 #define NUM_DISPLAY_DIGITS 6
+#define PLAY_AGAIN_HOFFSET (GRID_HOFFSET + (NUM_COLS * GRID_SIZE - play_again_width) / 2)
+#define PLAY_AGAIN_VOFFSET 140
 
 extern bool toExit;
 extern bool gameOver;
