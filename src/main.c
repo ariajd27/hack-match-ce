@@ -266,9 +266,8 @@ void addNewRow()
 			unsigned char numInGroup;
 			findMatchRegionClean(0, col, files[col][0], &numInGroup);
 
-			if (files[col][1] != files[col][0] && files[col - 1][1] != files[col][0]) break;
-			else if ((files[col][0] & 0x08) && numInGroup >= 2) continue;
-			else if (numInGroup >= AMOUNT_FILES_TO_MATCH) continue;
+			if ((files[col][0] & 0x08) && numInGroup >= 2) continue;
+			if (numInGroup >= AMOUNT_FILES_TO_MATCH) continue;
 
 			break;
 		}
