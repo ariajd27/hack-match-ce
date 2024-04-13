@@ -26,10 +26,10 @@ Program Type: ASM
 
 Size and Variable Usage:
 - RAM: 6996 B
- - HACKMTCH: 6976 B
- - HKMCHDAT: 20 B
+    - HACKMTCH: 6976 B
+    - HKMCHDAT: 20 B
 - ROM: 54262 B
- - HKMCHGFX: 54262 B
+    - HKMCHGFX: 54262 B
 
 ## Source
 
