@@ -263,7 +263,7 @@ void addNewRow()
 			files[col][0] = rand() % NUM_BLOCK_COLORS + 1;
 			if (rand() % STAR_CHANCE == 0) files[col][0] |= 0x08; // set it to be a star
 
-			unsigned char numInGroup;
+			unsigned char numInGroup = 0;
 			findMatchRegionClean(0, col, files[col][0], &numInGroup);
 
 			if ((files[col][0] & 0x08) && numInGroup >= 2) continue;
