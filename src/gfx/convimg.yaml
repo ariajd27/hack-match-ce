@@ -31,7 +31,7 @@ converts:
   - name: exas
     palette: grid_palette
     palette-offset: 16
-    style: rlet
+    style: palette
     transparent-color-index: 0
     images:
       - exas/*.png

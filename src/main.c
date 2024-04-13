@@ -457,7 +457,7 @@ void startGame()
 	// set and draw initial exa position
 	exaCol = EXA_START_COL;
 	gfx_GetSprite(behindExa, EXA_HOFFSET + EXA_START_COL * GRID_SIZE, EXA_VOFFSET);
-	gfx_RLETSprite(exa_empty, EXA_HOFFSET + EXA_START_COL * GRID_SIZE, EXA_VOFFSET);
+	gfx_TransparentSprite_NoClip(exa_empty, EXA_HOFFSET + EXA_START_COL * GRID_SIZE, EXA_VOFFSET);
 
 	nextLineTime = clock() + MIN_NEW_ROW_INTERVAL;
 }

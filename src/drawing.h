@@ -8,7 +8,7 @@ extern struct gfx_sprite_t *behindExa;
 extern struct gfx_sprite_t *fileSprites[14];
 extern struct gfx_sprite_t *fileMatchSprites[6];
 extern struct gfx_sprite_t *digitSprites[10];
-extern struct gfx_rletsprite_t *deathSprites[3];
+extern struct gfx_sprite_t *deathSprites[3];
 
 void drawExa();
 void drawCol(const unsigned char col);

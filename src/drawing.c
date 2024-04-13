@@ -18,7 +18,7 @@ unsigned char deathStage;
 struct gfx_sprite_t *fileSprites[14];
 struct gfx_sprite_t *fileMatchSprites[6];
 struct gfx_sprite_t *digitSprites[10];
-struct gfx_rletsprite_t *deathSprites[3];
+struct gfx_sprite_t *deathSprites[3];
 
 gfx_UninitedSprite(behindExa, exa_empty_width, exa_empty_height);
 
@@ -30,13 +30,13 @@ void drawExa()
 		gfx_Sprite_NoClip(fileSprites[heldFile], exaX + EXA_HELD_HOFFSET, EXA_VOFFSET + EXA_HELD_VOFFSET);
 	}
 
-	if (deathStage > 0) gfx_RLETSprite_NoClip(deathSprites[deathStage], exaX, EXA_VOFFSET);
+	if (deathStage > 0) gfx_TransparentSprite_NoClip(deathSprites[deathStage], exaX, EXA_VOFFSET);
 	else if (isHoldingFile)
 	{
-		if (heldFile & 0x08) gfx_RLETSprite_NoClip(exa_star, exaX, EXA_VOFFSET);
-		else gfx_RLETSprite_NoClip(exa_file, exaX, EXA_VOFFSET);
+		if (heldFile & 0x08) gfx_TransparentSprite_NoClip(exa_star, exaX, EXA_VOFFSET);
+		else gfx_TransparentSprite_NoClip(exa_file, exaX, EXA_VOFFSET);
 	}
-	else gfx_RLETSprite_NoClip(exa_empty, exaX, EXA_VOFFSET);
+	else gfx_TransparentSprite_NoClip(exa_empty, exaX, EXA_VOFFSET);
 }
 
 void drawCol(const unsigned char col)
