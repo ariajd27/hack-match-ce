@@ -165,7 +165,7 @@ void drawFrame()
 #endif
 }
 
-void titleScreen()
+bool titleScreen()
 {
 	gfx_FillScreen(COLOR_BLACK);
 	gfx_RLETSprite_NoClip(title, TITLE_SPRITE_HOFFSET, TITLE_SPRITE_VOFFSET);
@@ -178,7 +178,16 @@ void titleScreen()
 	gfx_BlitBuffer();
 #endif
 
-	while (!os_GetCSC());
+	// wait for no keys to be pressed
+	while (kb_AnyKey());
+
+	// wait for a key to be pressed
+	while (true)
+	{
+		kb_Scan();
+		if (kb_IsDown(kb_KeyClear)) return true;
+		else if (kb_AnyKey()) return false;
+	}
 }
 
 void sleep(unsigned long time)

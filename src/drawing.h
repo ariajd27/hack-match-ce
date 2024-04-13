@@ -16,7 +16,7 @@ void clearifySprites(const unsigned char step);
 void animateClear();
 void drawNumber(const unsigned int x, const unsigned char y, const unsigned int toDraw);
 void drawFrame();
-void titleScreen();
+bool titleScreen();
 void animateDeath();
 
 #endif

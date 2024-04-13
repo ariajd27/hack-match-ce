@@ -570,10 +570,14 @@ void init()
 int main(void)
 {
 	init();
-	titleScreen();
 
 	do
 	{
+		if (titleScreen()) break;
+
+		// wait for keys to be reset
+		while (kb_AnyKey());
+
 		startGame();
 
 		while (doInput())
