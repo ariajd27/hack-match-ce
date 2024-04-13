@@ -443,6 +443,20 @@ void endGame()
 
 void init()
 {
+	// basic graphics display settings
+	gfx_Begin();
+#ifdef NO_BUFFER
+	gfx_SetDrawScreen();
+#else
+	gfx_SetDrawBuffer();
+#endif
+
+	// set the weird combination palette
+	unsigned char global_palette[32 + sizeof_grid_palette];
+	for (unsigned char i = 0; i < sizeof_fixed_palette; i++) global_palette[i] = fixed_palette[i];
+	for (unsigned char i = 0; i < sizeof_grid_palette; i++) global_palette[i + 32] = grid_palette[i];
+	gfx_SetPalette(global_palette, 32 + sizeof_grid_palette, 0);
+
 	toExit = false;
 
 	// find the high score
@@ -468,14 +482,6 @@ void init()
 
 int main(void)
 {
-	gfx_Begin();
-#ifdef NO_BUFFER
-	gfx_SetDrawScreen();
-#else
-	gfx_SetDrawBuffer();
-#endif
-	gfx_SetPalette(global_palette, sizeof_global_palette, 0);
-
 	init();
 	titleScreen();
 
