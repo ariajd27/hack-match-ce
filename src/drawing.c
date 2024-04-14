@@ -14,6 +14,8 @@
 
 unsigned char global_palette[32 + sizeof_grid_palette];
 unsigned char deathStage;
+bool deathFlashOn;
+unsigned long nextDeathFlash;
 
 struct gfx_sprite_t *fileSprites[14];
 struct gfx_sprite_t *fileMatchSprites[6];
@@ -21,6 +23,7 @@ struct gfx_sprite_t *digitSprites[10];
 struct gfx_sprite_t *deathSprites[3];
 
 gfx_UninitedSprite(behindExa, exa_empty_width, exa_empty_height);
+gfx_UninitedSprite(behindGameOver, play_again_width, play_again_height);
 
 void drawExa()
 {
@@ -218,6 +221,24 @@ void animateDeath()
 	}
 
 	// ask the player to try again
+	behindGameOver->width = play_again_width;
+	behindGameOver->height = play_again_height;
+	gfx_GetSprite(behindGameOver, PLAY_AGAIN_HOFFSET, PLAY_AGAIN_VOFFSET);
 	gfx_RLETSprite_NoClip(play_again, PLAY_AGAIN_HOFFSET, PLAY_AGAIN_VOFFSET);
 	gfx_BlitBuffer();
+	deathFlashOn = true;
+	nextDeathFlash = clock() + GAME_OVER_FLASH_TIME;
+}
+
+void deathPeriodic()
+{
+	if (clock() < nextDeathFlash) return;
+
+	if (deathFlashOn) gfx_Sprite_NoClip(behindGameOver, PLAY_AGAIN_HOFFSET, PLAY_AGAIN_VOFFSET);
+	else gfx_RLETSprite_NoClip(play_again, PLAY_AGAIN_HOFFSET, PLAY_AGAIN_VOFFSET);
+
+	gfx_BlitBuffer();
+
+	deathFlashOn = !deathFlashOn;
+	nextDeathFlash = clock() + GAME_OVER_FLASH_TIME;
 }

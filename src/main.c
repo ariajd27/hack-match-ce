@@ -473,6 +473,7 @@ bool endGame()
 		const unsigned char saveVar = ti_Open(SAVE_VAR_NAME, "w");
 		ti_Write(&score, 3, 1, saveVar);
 		ti_Close(saveVar);
+		highScore = score;
 	}
 
 	if (gameOver)
@@ -483,6 +484,8 @@ bool endGame()
 		// wait for input to either exit or restart
 		while (true)
 		{
+			deathPeriodic();
+
 			kb_Scan();
 
 			if (kb_IsDown(kb_KeyClear)) return false;

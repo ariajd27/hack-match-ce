@@ -42,6 +42,7 @@
 #define CLEAR_ANIMATION_FRAME_TIME 1600
 #define DEATH_ANIMATION_FRAME_TIME 16000
 #define DEATH_DARKEN_LEVEL 232
+#define GAME_OVER_FLASH_TIME 32000
 
 #define BG_HOFFSET ((GFX_LCD_WIDTH - background_width) / 2)
 #define BG_VOFFSET ((GFX_LCD_HEIGHT - background_height) / 2)

@@ -18,5 +18,6 @@ void drawNumber(const unsigned int x, const unsigned char y, const unsigned int 
 void drawFrame();
 bool titleScreen();
 void animateDeath();
+void deathPeriodic();
 
 #endif

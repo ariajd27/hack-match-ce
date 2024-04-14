@@ -1,0 +1,3 @@
+Version 1.1.0:
+ - game end screen now flashes "GAME OVER" instead of just displaying it
+ - displayed high score now updates when the game is restarted
