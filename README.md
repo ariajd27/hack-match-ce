@@ -17,6 +17,7 @@ Groups larger than 4 score bonus points. Two stars placed next to each other wil
 - Arrow keys: move EXA (cursor) left/right
 - 2nd: grab/drop file
 - alpha: swap top files
+- clear: quit game (at any time)
 
 ## Technical Information
 
