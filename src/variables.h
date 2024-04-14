@@ -7,6 +7,7 @@
 #define COLOR_WHITE 1
 #define COLOR_RED 2
 #define COLOR_DASH 17
+#define COLOR_DOT 18
 
 #define TITLE_SPRITE_HOFFSET ((GFX_LCD_WIDTH - title_width) / 2)
 #define TITLE_SPRITE_VOFFSET 36
@@ -39,8 +40,8 @@
 
 #define MOVE_ANIMATION_FRAME_TIME 300
 #define CLEAR_ANIMATION_FRAME_TIME 1600
-#define DEATH_ANIMATION_FRAME_TIME 12000
-#define DEATH_DARKEN_LEVEL 96
+#define DEATH_ANIMATION_FRAME_TIME 16000
+#define DEATH_DARKEN_LEVEL 232
 
 #define BG_HOFFSET ((GFX_LCD_WIDTH - background_width) / 2)
 #define BG_VOFFSET ((GFX_LCD_HEIGHT - background_height) / 2)
@@ -61,6 +62,9 @@
 #define NUM_DISPLAY_DIGITS 6
 #define PLAY_AGAIN_HOFFSET (2 + GRID_HOFFSET + (NUM_COLS * GRID_SIZE - play_again_width) / 2)
 #define PLAY_AGAIN_VOFFSET (GRID_VOFFSET + 42)
+#define DOTS_HOFFSET (BG_HOFFSET + 48)
+#define DOTS_VOFFSET 202
+#define NUM_DOTS 49
 
 extern bool toExit;
 extern bool gameOver;

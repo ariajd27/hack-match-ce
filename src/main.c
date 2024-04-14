@@ -428,6 +428,11 @@ void startGame()
 	// draw the background
 	gfx_FillScreen(COLOR_BLACK);
 	gfx_RLETSprite_NoClip(background, BG_HOFFSET, BG_VOFFSET);
+	gfx_SetColor(COLOR_DOT);
+	for (unsigned int x = DOTS_HOFFSET; x <= DOTS_HOFFSET + 2 * NUM_DOTS; x += 2)
+	{
+		gfx_SetPixel(x, DOTS_VOFFSET);
+	}
 
 	// draw the high score
 	drawNumber(HIGH_SCORE_HOFFSET, HIGH_SCORE_VOFFSET, highScore);

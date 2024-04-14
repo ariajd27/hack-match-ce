@@ -196,20 +196,26 @@ void sleep(unsigned long time)
 	while (clock() - sleepTimer < time);
 }
 
+void darken()
+{
+	for (unsigned char i = 16; i < 32; i++) gfx_palette[i] = gfx_Darken(gfx_palette[i], DEATH_DARKEN_LEVEL);
+}
+
 void animateDeath()
 {
-	// darken the grid
-	for (unsigned char i = 16; i < 32; i++) gfx_palette[i] = gfx_Darken(gfx_palette[i], DEATH_DARKEN_LEVEL);
-	drawFrame();
-	sleep(DEATH_ANIMATION_FRAME_TIME);
+	// do the animation
+	for (deathStage = 0; deathStage < 3; deathStage++)
+	{
+		darken();
+		drawFrame();
+		sleep(DEATH_ANIMATION_FRAME_TIME / 8);
 
-	// play the "exa dying" sprites
-	deathStage = 1;
-	drawFrame();
-	sleep(DEATH_ANIMATION_FRAME_TIME);
-	deathStage = 2;
-	drawFrame();
-	sleep(DEATH_ANIMATION_FRAME_TIME);
+		for (unsigned char i = 0; i < 7; i++)
+		{
+			darken();
+			sleep(DEATH_ANIMATION_FRAME_TIME / 8);
+		}
+	}
 
 	// ask the player to try again
 	gfx_RLETSprite_NoClip(play_again, PLAY_AGAIN_HOFFSET, PLAY_AGAIN_VOFFSET);

@@ -11,6 +11,7 @@ palettes:
     fixed-entries:
       - color: {index: 0, r: 0, g: 255, b: 255}
       - color: {index: 1, r: 179, g: 243, b: 204}
+      - color: {index: 2, r: 69, g: 224, b: 130}
 
 converts:
   - name: misc
