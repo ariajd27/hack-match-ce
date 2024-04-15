@@ -2,4 +2,5 @@ Version 1.1.0:
  - game end screen now flashes "GAME OVER" instead of just displaying it
  - displayed high score now updates when the game is restarted
  - added clear to exit to controls list in readme
- - changed file removal behavior
+ - overhauled file match, scoring, and removal behavior
+ - made files fall gradually

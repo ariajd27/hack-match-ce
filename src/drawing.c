@@ -12,6 +12,8 @@
 #include "variables.h"
 #include "drawing.h"
 
+#include <debug.h>
+
 unsigned char global_palette[32 + sizeof_grid_palette];
 unsigned char deathStage;
 bool deathFlashOn;
@@ -53,20 +55,24 @@ void drawCol(const unsigned char col)
 {
 	const unsigned int x = GRID_HOFFSET + col * GRID_SIZE;
 
-	unsigned char y = GRID_VOFFSET;
+	unsigned char y = GRID_VOFFSET - gridMoveOffset;
 	for (unsigned char row = 0; row < MAX_ROWS; row++)
 	{
 		if (files[col][row] != FILE_EMPTY)
 		{
 			// draw a file
-			if (files[col][row] & 0x80) gfx_Sprite_NoClip(fileMatchSprites[files[col][row] & 0x7f], x, y);
-			else if (files[col][row] & 0x10) gfx_Sprite_NoClip(file_locked, x, y);
-			else gfx_Sprite_NoClip(fileSprites[files[col][row]], x, y);
+			if (files[col][row] & 0x80)
+			{
+				if (files[col][row] & 0x08) gfx_Sprite(star_match, x, y);
+				else gfx_Sprite(fileMatchSprites[files[col][row] & 0x7f], x, y);
+			}
+			else if (files[col][row] & 0x10) gfx_Sprite(file_locked, x, y);
+			else gfx_Sprite(fileSprites[files[col][row]], x, y);
 		}
 		else
 		{
 			gfx_SetColor(COLOR_BLACK);
-			gfx_FillRectangle_NoClip(x, y, GRID_SIZE, GRID_SIZE);
+			gfx_FillRectangle(x, y, GRID_SIZE, GRID_SIZE);
 
 			if (col == exaCol)
 			{
@@ -75,19 +81,33 @@ void drawCol(const unsigned char col)
 				const unsigned char xx = x + DASH_HOFFSET;
 				for (unsigned char yy = y + DASH_VOFFSET; yy < y + GRID_SIZE; yy += DASH_INTERVAL)
 				{
-					gfx_SetPixel(xx, yy);
+					gfx_FillRectangle(xx, yy, DASH_WIDTH, DASH_HEIGHT);
 				}
 			}
 		}
 		y += GRID_SIZE;
 	}
 
-	if (col == exaCol) drawExa(); // else it will have been drawn over a bit
+	// fill in below the grid for partially-lowered files
+	gfx_SetColor(COLOR_BLACK);
+	gfx_FillRectangle(x, y, GRID_SIZE, gridMoveOffset);
+
+	if (col == exaCol)
+	{
+		gfx_SetColor(COLOR_DASH);
+		const unsigned char xx = x + DASH_HOFFSET;
+		for (unsigned char yy = y + DASH_VOFFSET; yy < y + gridMoveOffset; yy += DASH_INTERVAL)
+		{
+			gfx_FillRectangle_NoClip(xx, yy, DASH_WIDTH, DASH_HEIGHT);
+		}
+
+		drawExa(); // else it will have been drawn over a bit
+	}
 }
 
 void clearifySprites(const unsigned char step)
 {
-	unsigned int y = GRID_VOFFSET;
+	unsigned int y = GRID_VOFFSET - gridMoveOffset;
 	for (unsigned char row = 0; row < MAX_ROWS; row++)
 	{
 		unsigned char x = GRID_HOFFSET;
@@ -97,13 +117,13 @@ void clearifySprites(const unsigned char step)
 			{
 				if (files[col][row] & 0x08)
 				{
-					if (step == 0) gfx_Sprite_NoClip(star_erase_1, x, y);
-					else gfx_Sprite_NoClip(star_erase_2, x, y);
+					if (step == 0) gfx_Sprite(star_erase_1, x, y);
+					else gfx_Sprite(star_erase_2, x, y);
 				}
 				else
 				{
-					if (step == 0) gfx_Sprite_NoClip(file_erase_1, x, y);
-					else gfx_Sprite_NoClip(file_erase_2, x, y);
+					if (step == 0) gfx_Sprite(file_erase_1, x, y);
+					else gfx_Sprite(file_erase_2, x, y);
 				}
 			}
 
@@ -135,7 +155,7 @@ void animateClear() // relies on to-clears being flagged with bit 7
 		gfx_BlitBuffer();
 	}
 
-	nextLineTime += clock() - refundTimer;
+	nextMoveTime += clock() - refundTimer;
 }
 
 void drawNumber(const unsigned int x, const unsigned char y, const unsigned int toDraw)

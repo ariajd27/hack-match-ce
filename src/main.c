@@ -24,14 +24,15 @@ unsigned char exaCol;
 bool isHoldingFile;
 unsigned char heldFile;
 
-clock_t nextLineTime;
+unsigned char gridMoveOffset;
+clock_t nextMoveTime;
 
 unsigned char prevRight, prevLeft, prev2nd, prevAlpha;
 
 bool matched;
 unsigned char starMatches;
 clock_t clearTime;
-unsigned char nextValue;
+unsigned int nextValue;
 
 bool getTargetedFile(unsigned char *output) // each of these returns false on failure
 {
@@ -91,7 +92,7 @@ bool grab() // all of these return true if something changed
 	gfx_SetDrawBuffer();
 #endif
 
-	nextLineTime += clock() - refundTimer;
+	nextMoveTime += clock() - refundTimer;
 
 	return true;
 }
@@ -127,7 +128,7 @@ bool drop()
 	gfx_SetDrawBuffer();
 #endif
 
-	nextLineTime += clock() - refundTimer;
+	nextMoveTime += clock() - refundTimer;
 
 	return true;
 }
@@ -224,20 +225,20 @@ void findMatchRegionClean
 	}
 }
 
-void getNextLineTime()
+void getNextMoveTime()
 {
 	if (score < ROW_INTERVAL_SCALE_END)
 	{
-		nextLineTime = clock() + MAX_NEW_ROW_INTERVAL;
+		nextMoveTime = clock() + MAX_NEW_ROW_INTERVAL / 4;
 
 		if (score > ROW_INTERVAL_SCALE_START)
 		{
-			nextLineTime -= (score - ROW_INTERVAL_SCALE_START) * ROW_INTERVAL_SCALE_FACTOR;
+			nextMoveTime -= (score - ROW_INTERVAL_SCALE_START) * ROW_INTERVAL_SCALE_FACTOR / 4;
 		}
 	}
 	else
 	{
-		nextLineTime = clock() + MIN_NEW_ROW_INTERVAL;
+		nextMoveTime = clock() + MIN_NEW_ROW_INTERVAL / 4;
 	}
 }
 
@@ -291,6 +292,9 @@ void addNewRow()
 			break;
 		}
 	}
+
+	// move all the blocks back up so it's not too jarring
+	gridMoveOffset += GRID_SIZE;
 }
 
 void collapseGrid()
@@ -326,6 +330,18 @@ void setClearTime()
 	clearTime = clock() + MATCH_TIME;
 }
 
+void clearMarks(const bool toMark)
+{
+	for (unsigned char checkRow = 0; checkRow < MAX_ROWS; checkRow++)
+	{
+		for (unsigned char checkCol = 0; checkCol < NUM_COLS; checkCol++)
+		{
+			if (toMark) files[checkCol][checkRow] &= 0xbf;
+			else if (files[checkCol][checkRow] & 0x40) files[checkCol][checkRow] &= 0x3f;
+		}
+	}	
+}
+
 void checkForMatch()
 {
 	// check for sets to pop and score
@@ -344,10 +360,12 @@ void checkForMatch()
 				if (numMatchingStars < 2)
 				{
 					// if not, we don't care about it, bc it can't form a set
-					files[col][row] &= 0x7f;
+					clearMarks(false);
 				}
 				else
 				{
+					starMatches += numMatchingStars;
+
 					// if we get here, it does have a match!
 					const unsigned char target = files[col][row] & 0x07;
 					for (unsigned char starRow = 0; starRow < MAX_ROWS; starRow++)
@@ -370,18 +388,10 @@ void checkForMatch()
 				// find all contiguous matching blocks and their count
 				unsigned char numMatchingBlocks = 0;
 				findMatchRegion(row, col, files[col][row], &numMatchingBlocks);
-				const bool toMark = numMatchingBlocks >= AMOUNT_FILES_TO_MATCH;
 
 				// unmark or cement the matching region
-				for (unsigned char checkRow = 0; checkRow < MAX_ROWS; checkRow++)
-				{
-					for (unsigned char checkCol = 0; checkCol < NUM_COLS; checkCol++)
-					{
-						if (toMark) files[checkCol][checkRow] &= 0xbf;
-						else if (files[checkCol][checkRow] & 0x40) files[checkCol][checkRow] &= 0x3f;
-					}
-				}	
-
+				const bool toMark = numMatchingBlocks >= AMOUNT_FILES_TO_MATCH;
+				clearMarks(toMark);	
 				if (toMark) setClearTime();	
 			}
 		}
@@ -407,7 +417,8 @@ void scoreGrid()
 	}
 
 	// calculate the score for the matching region
-	unsigned char atBase = nextValue == BASE_BLOCK_VALUE ? AMOUNT_FILES_TO_MATCH : 0;
+	unsigned char atBase = 0;
+	if (nextValue == BASE_BLOCK_VALUE) atBase = AMOUNT_FILES_TO_MATCH;
 	numMatchingBlocks -= starMatches;
 	while (numMatchingBlocks > 0)
 	{
@@ -416,7 +427,11 @@ void scoreGrid()
 					
 		score += nextValue;
 		numMatchingBlocks--;
+
+		dbg_printf("added block with value %u\n", nextValue);
 	}
+
+	dbg_printf("total score: %u\n", score);
 
 	// tidy up
 	matched = false;
@@ -426,6 +441,8 @@ void scoreGrid()
 
 void updateGrid()
 {
+	clock_t refundTimer = clock();
+
 	// remove the matched blocks and collapse the grid if it's time
 	if (matched && clock() > clearTime)
 	{
@@ -436,13 +453,23 @@ void updateGrid()
 	checkForMatch();
 
 	// reset the score if not
-	if (!matched) nextValue = BASE_BLOCK_VALUE;
-
-	// move the grid down if it's time
-	if (clock() > nextLineTime)
+	if (!matched)
 	{
-		addNewRow();
-		getNextLineTime();
+		nextValue = BASE_BLOCK_VALUE;
+
+		// ...and move the grid down if it's time
+		if (clock() > nextMoveTime)
+		{
+			gridMoveOffset -= GRID_SIZE / GRID_MOVE_STEPS;
+			if (gridMoveOffset == 0) addNewRow();
+			getNextMoveTime();
+		}
+	}
+
+	// if there is a match, don't move the grid down
+	else 
+	{
+		nextMoveTime += clock() - refundTimer;
 	}
 }
 
@@ -481,17 +508,19 @@ void startGame()
 	}
 
 	// populate the initial grid
-	for (unsigned char i = 0; i < NUM_INITIAL_ROWS; i++)
+	for (unsigned char i = 0; i <= NUM_INITIAL_ROWS; i++)
 	{
 		addNewRow();
 	}
+
+	gridMoveOffset = GRID_SIZE;
 
 	// set and draw initial exa position
 	exaCol = EXA_START_COL;
 	gfx_GetSprite(behindExa, EXA_HOFFSET + EXA_START_COL * GRID_SIZE, EXA_VOFFSET);
 	gfx_TransparentSprite_NoClip(exa_empty, EXA_HOFFSET + EXA_START_COL * GRID_SIZE, EXA_VOFFSET);
 
-	nextLineTime = clock() + MIN_NEW_ROW_INTERVAL;
+	nextMoveTime = clock() + MIN_NEW_ROW_INTERVAL;
 }
 
 bool endGame()
@@ -574,6 +603,9 @@ void init()
 #else
 	gfx_SetDrawBuffer();
 #endif
+
+	// set the clip area so that the grid can be offset
+	gfx_SetClipRegion(0, CLIP_VOFFSET, GFX_LCD_WIDTH, GFX_LCD_HEIGHT);
 
 	// prepare the sketchy combination palette
 	for (unsigned char i = 0; i < sizeof_fixed_palette; i++) global_palette[i] = fixed_palette[i];

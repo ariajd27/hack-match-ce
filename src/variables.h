@@ -50,6 +50,8 @@
 #define GRID_HOFFSET (BG_HOFFSET + 48)
 #define GRID_VOFFSET (BG_VOFFSET + 23)
 #define GRID_SIZE 16
+#define GRID_MOVE_STEPS 4
+#define CLIP_VOFFSET (BG_VOFFSET + 22)
 #define EXA_HOFFSET (BG_HOFFSET + 44)
 #define EXA_VOFFSET (BG_VOFFSET + 193)
 #define EXA_HELD_HOFFSET 4
@@ -57,6 +59,8 @@
 #define DASH_HOFFSET 8
 #define DASH_VOFFSET 3
 #define DASH_INTERVAL 4
+#define DASH_WIDTH 1
+#define DASH_HEIGHT 1
 #define SCORE_HOFFSET (BG_HOFFSET + 160)
 #define SCORE_VOFFSET (BG_VOFFSET + 41)
 #define HIGH_SCORE_HOFFSET (BG_HOFFSET + 160)
@@ -78,8 +82,9 @@ extern unsigned char files[NUM_COLS][MAX_ROWS];
 extern unsigned char exaCol;
 extern bool isHoldingFile;
 extern unsigned char heldFile;
+extern unsigned char gridMoveOffset;
 
-extern clock_t nextLineTime;
+extern clock_t nextMoveTime;
 
 extern unsigned char prevRight, prevLeft, prev2nd, prevAlpha;
 
