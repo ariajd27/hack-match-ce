@@ -26,11 +26,11 @@ Format: auto-extracting 8xg
 Program Type: ASM
 
 Size and Variable Usage:
-- RAM: 6996 B
-    - HACKMTCH: 6976 B
+- RAM: 7360 B
+    - HACKMTCH: 7340 B
     - HKMCHDAT: 20 B
-- ROM: 54262 B
-    - HKMCHGFX: 54262 B
+- ARC: 54117 B
+    - HKMCHGFX: 54117 B
 
 ## Source
 
