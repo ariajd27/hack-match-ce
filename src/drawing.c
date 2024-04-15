@@ -30,7 +30,14 @@ void drawExa()
 	const unsigned char exaX = EXA_HOFFSET + GRID_SIZE * exaCol;
 	if (deathStage == 0 && isHoldingFile)
 	{
-		gfx_Sprite_NoClip(fileSprites[heldFile], exaX + EXA_HELD_HOFFSET, EXA_VOFFSET + EXA_HELD_VOFFSET);
+		if (heldFile & 0x10)
+		{
+			gfx_Sprite_NoClip(file_locked, exaX + EXA_HELD_HOFFSET, EXA_VOFFSET + EXA_HELD_VOFFSET);
+		}
+		else
+		{
+			gfx_Sprite_NoClip(fileSprites[heldFile], exaX + EXA_HELD_HOFFSET, EXA_VOFFSET + EXA_HELD_VOFFSET);
+		}
 	}
 
 	if (deathStage > 0) gfx_TransparentSprite_NoClip(deathSprites[deathStage], exaX, EXA_VOFFSET);
@@ -51,8 +58,10 @@ void drawCol(const unsigned char col)
 	{
 		if (files[col][row] != FILE_EMPTY)
 		{
-			// just draw a file
-			gfx_Sprite_NoClip(fileSprites[files[col][row] & 0x7f], x, y);
+			// draw a file
+			if (files[col][row] & 0x80) gfx_Sprite_NoClip(fileMatchSprites[files[col][row] & 0x7f], x, y);
+			else if (files[col][row] & 0x10) gfx_Sprite_NoClip(file_locked, x, y);
+			else gfx_Sprite_NoClip(fileSprites[files[col][row]], x, y);
 		}
 		else
 		{
@@ -88,14 +97,12 @@ void clearifySprites(const unsigned char step)
 			{
 				if (files[col][row] & 0x08)
 				{
-					if (step == 0) gfx_Sprite_NoClip(star_match, x, y);
-					else if (step == 1) gfx_Sprite_NoClip(star_erase_1, x, y);
+					if (step == 0) gfx_Sprite_NoClip(star_erase_1, x, y);
 					else gfx_Sprite_NoClip(star_erase_2, x, y);
 				}
 				else
 				{
-					if (step == 0) gfx_Sprite_NoClip(fileMatchSprites[files[col][row] & 0x07], x, y);
-					else if (step == 1) gfx_Sprite_NoClip(file_erase_1, x, y);
+					if (step == 0) gfx_Sprite_NoClip(file_erase_1, x, y);
 					else gfx_Sprite_NoClip(file_erase_2, x, y);
 				}
 			}
@@ -117,7 +124,7 @@ void animateClear() // relies on to-clears being flagged with bit 7
 		drawCol(col);
 	}
 
-	for (unsigned char step = 0; step < 3; step++)
+	for (unsigned char step = 0; step < 2; step++)
 	{
 		clock_t animationTimer = clock();
 
@@ -220,7 +227,7 @@ void animateDeath()
 		}
 	}
 
-	// ask the player to try again
+	// say "GAME OVER"
 	behindGameOver->width = play_again_width;
 	behindGameOver->height = play_again_height;
 	gfx_GetSprite(behindGameOver, PLAY_AGAIN_HOFFSET, PLAY_AGAIN_VOFFSET);

@@ -28,11 +28,17 @@ clock_t nextLineTime;
 
 unsigned char prevRight, prevLeft, prev2nd, prevAlpha;
 
+bool matched;
+unsigned char starMatches;
+clock_t clearTime;
+unsigned char nextValue;
+
 bool getTargetedFile(unsigned char *output) // each of these returns false on failure
 {
 	for (unsigned char row = MAX_ROWS - 1; row < MAX_ROWS; row--)
 	{
 		if (files[exaCol][row] == FILE_EMPTY) continue;
+		if (files[exaCol][row] & 0x80) return false; // no moving matched files!
 
 		*output = row;
 		return true;
@@ -131,6 +137,7 @@ bool swap()
 	unsigned char topRow;
 	if (!getTargetedFile(&topRow)) return false;
 	if (topRow == 0) return false; // nothing under the top file to swap
+	if (files[exaCol][topRow - 1] & 0x80) return false; // no moving matched files!
 
 	const unsigned char swapFile = files[exaCol][topRow];
 
@@ -180,13 +187,25 @@ bool doInput()
 void findMatchRegion
 (const unsigned char row, const unsigned char col, const unsigned char target, unsigned char *count)
 {
-	files[col][row] |= 0x80; // mark as visited
+	files[col][row] |= 0xc0; // mark as visited
 
 	// visited tiles won't == target
-	if (col > 0 && files[col - 1][row] == target) findMatchRegion(row, col - 1, target, count);
-	if (col < NUM_COLS - 1 && files[col + 1][row] == target) findMatchRegion(row, col + 1, target, count);
-	if (row > 0 && files[col][row - 1] == target) findMatchRegion(row - 1, col, target, count);
-	if (row < MAX_ROWS - 1 && files[col][row + 1] == target) findMatchRegion(row + 1, col, target, count);
+	if (col > 0 && (files[col - 1][row] & 0x7f) == target)
+	{
+		findMatchRegion(row, col - 1, target, count);
+	}
+	if (col < NUM_COLS - 1 && (files[col + 1][row] & 0x7f) == target)
+	{
+		findMatchRegion(row, col + 1, target, count);
+	}
+	if (row > 0 && (files[col][row - 1] & 0x7f) == target)
+	{
+		findMatchRegion(row - 1, col, target, count);
+	}
+	if (row < MAX_ROWS - 1 && (files[col][row + 1] & 0x7f) == target) 
+	{
+		findMatchRegion(row + 1, col, target, count);
+	}
 
 	(*count)++;
 }
@@ -200,7 +219,7 @@ void findMatchRegionClean
 	{
 		for (unsigned char cleaningCol = 0; cleaningCol < NUM_COLS; cleaningCol++)
 		{
-			files[cleaningCol][cleaningRow] &= 0x7f;
+			if (files[cleaningCol][cleaningRow] & 0x40) files[cleaningCol][cleaningRow] &= 0x3f;
 		}
 	}
 }
@@ -299,42 +318,23 @@ void collapseGrid()
 	}
 }
 
-void popStar(const unsigned char row, const unsigned char col)
+void setClearTime()
 {
-	// mark all the matching files
-	const unsigned char target = files[col][row] & 0x07;
-	for (unsigned char row = 0; row < MAX_ROWS; row++)
-	{
-		for (unsigned char col = 0; col < NUM_COLS; col++)
-		{
-			if (files[col][row] == target) files[col][row] |= 0x80;
-		}
-	}
+	if (matched) return;
 
-	animateClear();
-
-	// remove the stars and files
-	for (unsigned char row = 0; row < MAX_ROWS; row++)
-	{
-		for (unsigned char col = 0; col < NUM_COLS; col++)
-		{
-			if (files[col][row] & 0x80) files[col][row] = FILE_EMPTY;
-		}
-	}
-
-	collapseGrid();
+	matched = true;
+	clearTime = clock() + MATCH_TIME;
 }
 
-bool tryScoreGrid(unsigned char *atBase, unsigned int *nextValue)
+void checkForMatch()
 {
-	bool didScore = false;
-
 	// check for sets to pop and score
 	for (unsigned char row = MAX_ROWS - 1; row < MAX_ROWS; row--)
 	{
 		for (unsigned char col = 0; col < NUM_COLS; col++)
 		{
 			if (files[col][row] == FILE_EMPTY) continue;
+			if (files[col][row] & 0x80) continue;
 
 			if (files[col][row] & 0x08)
 			{
@@ -349,68 +349,94 @@ bool tryScoreGrid(unsigned char *atBase, unsigned int *nextValue)
 				else
 				{
 					// if we get here, it does have a match!
-					popStar(row, col);
-				}
-
-				// no matter what, we don't do the file stuff for stars
-				continue;
-			}
-
-			// find all contiguous matching blocks and their count
-			unsigned char numMatchingBlocks = 0;
-			findMatchRegion(row, col, files[col][row], &numMatchingBlocks);
-
-			if (numMatchingBlocks >= AMOUNT_FILES_TO_MATCH)
-			{
-				animateClear();
-
-				// calculate the score for the matching region
-				while (numMatchingBlocks > 0)
-				{
-					if (*atBase > 0) (*atBase)--;
-					else *nextValue += CHAIN_BLOCK_BONUS;
-					
-					score += *nextValue;
-					numMatchingBlocks--;
-				}
-
-				// remove the matching region
-				for (unsigned char checkRow = 0; checkRow < MAX_ROWS; checkRow++)
-				{
-					for (unsigned char checkCol = 0; checkCol < NUM_COLS; checkCol++)
+					const unsigned char target = files[col][row] & 0x07;
+					for (unsigned char starRow = 0; starRow < MAX_ROWS; starRow++)
 					{
-						if (files[checkCol][checkRow] & 0x80) files[checkCol][checkRow] = FILE_EMPTY;
+						for (unsigned char starCol = 0; starCol < NUM_COLS; starCol++)
+						{
+							if (files[starCol][starRow] & 0x40) files[starCol][starRow] &= 0xbf;
+							if (files[starCol][starRow] != target) continue;
+							
+							files[starCol][starRow] |= 0x80;
+							starMatches++; // keep track so we don't award points for them later
+						}
 					}
-				}
 
-				didScore = true;
+					setClearTime();
+				}
 			}
 			else
 			{
-				// unmark the matching region
+				// find all contiguous matching blocks and their count
+				unsigned char numMatchingBlocks = 0;
+				findMatchRegion(row, col, files[col][row], &numMatchingBlocks);
+				const bool toMark = numMatchingBlocks >= AMOUNT_FILES_TO_MATCH;
+
+				// unmark or cement the matching region
 				for (unsigned char checkRow = 0; checkRow < MAX_ROWS; checkRow++)
 				{
 					for (unsigned char checkCol = 0; checkCol < NUM_COLS; checkCol++)
 					{
-						files[checkCol][checkRow] &= 0x7f;
+						if (toMark) files[checkCol][checkRow] &= 0xbf;
+						else if (files[checkCol][checkRow] & 0x40) files[checkCol][checkRow] &= 0x3f;
 					}
 				}	
+
+				if (toMark) setClearTime();	
+			}
+		}
+	}
+}
+
+void scoreGrid()
+{
+	animateClear();
+
+	// remove the matching region and count how many blocks
+	unsigned char numMatchingBlocks = 0;	
+	for (unsigned char checkRow = 0; checkRow < MAX_ROWS; checkRow++)
+	{
+		for (unsigned char checkCol = 0; checkCol < NUM_COLS; checkCol++)
+		{
+			if (files[checkCol][checkRow] & 0x80)
+			{
+				files[checkCol][checkRow] = FILE_EMPTY;
+				numMatchingBlocks++;
 			}
 		}
 	}
 
-	return didScore;
+	// calculate the score for the matching region
+	unsigned char atBase = nextValue == BASE_BLOCK_VALUE ? AMOUNT_FILES_TO_MATCH : 0;
+	numMatchingBlocks -= starMatches;
+	while (numMatchingBlocks > 0)
+	{
+		if (atBase > 0) (atBase)--;
+		else nextValue += CHAIN_BLOCK_BONUS;
+					
+		score += nextValue;
+		numMatchingBlocks--;
+	}
+
+	// tidy up
+	matched = false;
+	starMatches = 0;
+	collapseGrid();
 }
 
 void updateGrid()
 {
-	// score and collapse the grid until no more scoring can be done
-	unsigned char atBase = AMOUNT_FILES_TO_MATCH;
-	unsigned int nextValue = BASE_BLOCK_VALUE;
-	while (tryScoreGrid(&atBase, &nextValue))
+	// remove the matched blocks and collapse the grid if it's time
+	if (matched && clock() > clearTime)
 	{
-		collapseGrid();
+		scoreGrid();
 	}
+
+	// check to see if there are any matches now
+	checkForMatch();
+
+	// reset the score if not
+	if (!matched) nextValue = BASE_BLOCK_VALUE;
 
 	// move the grid down if it's time
 	if (clock() > nextLineTime)
@@ -440,6 +466,8 @@ void startGame()
 	score = 0;
 	gameOver = 0;
 	deathStage = 0; // reset animation from last game
+	matched = false;
+	nextValue = BASE_BLOCK_VALUE;
 
 	srand(rtc_Time());
 
@@ -508,7 +536,7 @@ void init()
 	fileSprites[3] = file_cyan;
 	fileSprites[4] = file_blue;
 	fileSprites[5] = file_purple;
-	fileSprites[6] = file_locked;
+	fileSprites[6] = 0;
 	fileSprites[7] = 0;
 	fileSprites[8] = 0;
 	fileSprites[9] = star_red;
