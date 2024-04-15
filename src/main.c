@@ -1,5 +1,5 @@
 #include <sys/rtc.h>
-#include <ti/getcsc.h>
+#include <ti/screen.h>
 #include <fileioc.h>
 #include <graphx.h>
 #include <keypadc.h>
@@ -480,6 +480,12 @@ void startGame()
 
 	// draw the background
 	gfx_FillScreen(COLOR_BLACK);
+	gfx_SetColor(COLOR_METAL);
+	gfx_FillRectangle_NoClip(BG_HOFFSET, BG_VOFFSET, background_width, background_height);
+	gfx_SetColor(COLOR_BLACK);
+	gfx_FillRectangle_NoClip(BLK_RECT_1_X, BLK_RECT_1_Y, BLK_RECT_1_W, BLK_RECT_1_H);
+	gfx_FillRectangle_NoClip(BLK_RECT_2_X, BLK_RECT_2_Y, BLK_RECT_2_W, BLK_RECT_2_H);
+	gfx_FillRectangle_NoClip(BLK_RECT_3_X, BLK_RECT_3_Y, BLK_RECT_3_W, BLK_RECT_3_H);
 	gfx_RLETSprite_NoClip(background, BG_HOFFSET, BG_VOFFSET);
 	gfx_SetColor(COLOR_DOT);
 	for (unsigned int x = DOTS_HOFFSET; x <= DOTS_HOFFSET + 2 * NUM_DOTS; x += 2)
@@ -553,11 +559,10 @@ bool endGame()
 	return false;
 }
 
-void init()
+unsigned char init()
 {
-	// initialize the sprites
-	
-	HKMCHGFX_init();
+	// initialize the sprites	
+	if(!HKMCHGFX_init()) return 1;
 
 	fileSprites[0] = 0;
 	fileSprites[1] = file_red;
@@ -632,11 +637,21 @@ void init()
 	// initialize sprite storage
 	behindExa->width = exa_empty_width;
 	behindExa->height = exa_empty_height;
+
+	return 0;
 }
 
 int main(void)
 {
-	init();
+	if (init())
+	{
+		os_ClrHome();
+		os_PutStrFull("Missing gfx var!");
+
+		while (!kb_AnyKey());
+
+		return 0;
+	}
 
 	do
 	{

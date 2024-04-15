@@ -8,6 +8,7 @@
 #define COLOR_RED 2
 #define COLOR_DASH 17
 #define COLOR_DOT 18
+#define COLOR_METAL 3
 
 #define TITLE_SPRITE_HOFFSET ((GFX_LCD_WIDTH - title_width) / 2)
 #define TITLE_SPRITE_VOFFSET 36
@@ -71,6 +72,18 @@
 #define DOTS_HOFFSET (BG_HOFFSET + 48)
 #define DOTS_VOFFSET 202
 #define NUM_DOTS 49
+#define BLK_RECT_1_X (BG_HOFFSET + 46)
+#define BLK_RECT_1_Y (BG_VOFFSET + 22)
+#define BLK_RECT_1_W 100
+#define BLK_RECT_1_H 196
+#define BLK_RECT_2_X (BG_HOFFSET + 149)
+#define BLK_RECT_2_Y (BG_VOFFSET + 22)
+#define BLK_RECT_2_W 61
+#define BLK_RECT_2_H 35
+#define BLK_RECT_3_X (BG_HOFFSET + 150)
+#define BLK_RECT_3_Y (BG_VOFFSET + 78)
+#define BLK_RECT_3_W 60
+#define BLK_RECT_3_H 34
 
 extern bool toExit;
 extern bool gameOver;

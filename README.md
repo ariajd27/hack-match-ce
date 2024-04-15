@@ -10,6 +10,8 @@ Support the official release! Check out *EXAPUNKS*, an incredible open-ended pro
 
 Using any linking program (TILP, TI Connect CE, etc), import HACKMTCH.8xg onto your calculator. This program also relies on the standard C library available [here](https://github.com/CE-Programming/libraries/releases). If launching the program displays the error "need libload", try reinstalling that library.
 
+If upgrading from version 1.0.0 to version 1.1.0, you will also need to replace the graphics var for the updated graphics. To do so, go to 2nd -> mem -> Mem management -> (scroll down) AppVars and DELETE "HKMCHGFX" before importing HACKMTCH.8xg. 
+
 ## How to Play
 
 *HACK\*MATCH* is a match-4 game in the vein of Candy Crush, but (hopefully!) better. Move matching files into groups of 4 to remove them and score points. Files will continue to be added from the top; if they reach the bottom, it's game over!
@@ -30,11 +32,11 @@ Format: auto-extracting 8xg
 Program Type: ASM
 
 Size and Variable Usage:
-- RAM: 7705 B
-    - HACKMTCH: 7685 B
+- RAM: 7945 B
+    - HACKMTCH: 7925 B
     - HKMCHDAT: 20 B
-- ARC: 54117 B
-    - HKMCHGFX: 54117 B
+- ARC: 26447 B
+    - HKMCHGFX: 26447 B
 
 ## Source
 

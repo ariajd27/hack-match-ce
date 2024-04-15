@@ -4,3 +4,4 @@ Version 1.1.0:
  - added clear to exit to controls list in readme
  - overhauled file match, scoring, and removal behavior
  - made files fall gradually
+ - reduced size of background sprite
