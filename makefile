@@ -4,6 +4,7 @@
 
 NAME = HACKMTCH
 DESCRIPTION = "A fast-paced match-4 designed by Zachtronics"
+ICON = icon.png
 COMPRESSED = NO
 ARCHIVED = NO
 

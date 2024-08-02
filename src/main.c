@@ -182,7 +182,7 @@ bool doInput()
 		drawExa();
 	}
 
-	return !kb_IsDown(kb_KeyClear);
+	return !kb_On;
 }
 
 void findMatchRegion
@@ -561,6 +561,9 @@ bool endGame()
 
 unsigned char init()
 {
+	kb_EnableOnLatch();
+	kb_ClearOnLatch();
+
 	// initialize the sprites	
 	if(!HKMCHGFX_init()) return 1;
 
@@ -673,6 +676,8 @@ int main(void)
 	while (endGame());
 
 	gfx_End();
+
+	kb_ClearOnLatch();
 
 	return 0;
 }
